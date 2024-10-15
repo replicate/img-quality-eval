@@ -1,0 +1,48 @@
+img-quality-eval is a web app for evaluating outputs from different text-to-image models. It's a minimal Django-with-postgres-and-celery backend and a React frontend with tailwind for styles.
+
+The user flow is:
+1. A form to enter Replicate API key, upload data, and select models
+2. When submitting the form, you're redirected to a results page
+
+The form has the following inputs:
+* Replicate API key (secret str)
+* Title (str)
+* Data (file upload)
+* Models (checkboxes)
+
+The data is a .jsonl file where each row has the following format:
+
+```json
+{"prompt": "<prompt>", "images": [{"url": "<image1-url>", "labels": {...} }, ...], }
+```
+
+where `"prompt"` is optional.
+
+Models has the following options (where multiple can be selected):
+* DreamSim (the first image will be treated as a reference image, and subsequent images will be test images)
+* ImageReward (requires prompt)
+* Aesthetic (requires prompt)
+* CLIP (requires prompt)
+* BLIP (requires prompt)
+* PickScore (requires prompt)
+
+When the form is submitted, the data is validated:
+* The general format is validated with pydantic
+* All rows must either have a prompt or no prompt
+
+When the form is submitted, a number of Replicate predictions are kicked off:
+* The input data is sharded into chunks of 100 rows
+* If DreamSim is selected, predictions are sent to replicate.com/andreasjansson/dreamsim using the Replicate API. In each prediction the 'images' input will be a comma-separated list of image URLs, where the first URL is the reference image and the following images are test images. This is handled by a celery queue.
+* If any of the other models are selected, predictions are sent to replicate.com/andreasjansson/flash-eval using the Replicate API. In each prediction the 'prompts_and_images' input will be a newline-separated list of prompt/image URL pairs. Prompt/image URL pairs are formatted as `<prompt>:<image1>[,<image2>[,<image3>[,...]]]`, i.e. a prompt followed by a colon followed by one or more comma-separated image URLs, and the 'models' input will be a comma-separated list of models to use to evaluate.
+
+The flash-eval model returns `dict[str, dict[str, dict[str, float]]]` with the data `{"<prompt>": {"<image-url>": {"<model>": <score>}}}`. The dreamsim model returns `dict[str, dict[str, float]]` with the data `{"<ref-image-url>": {"<image-url>": <score>}}`.
+
+On the results page, all images are listed with each row in the dataset corresponding to a row in the UI. If prompt is provided, it's displayed above each row of images. Labels are displayed below each image.
+
+Below or next to the metadata for each image are the scores from the model. The results page loads directly, and before results have come back, it says `<model>: processing...`. The text "processing" is replaced with the actual score when the score has returned. The data is loaded by the react component by calling an /api endpoint on the django backend.
+
+The results page is given a long unguessable `eval_id` which is stored in the database. Model scores are also stored in that database with a reference to the eval_id. The results page URL contains the eval_id, and can be used to anonymously view the results of the eval.
+
+Implement this completely and also give me a docker-compose file I can use to run this app. Use Django 5.1 and React 18.3.1. Also give me the full path to the files I should be importing.
+
+My main project app is in img-quality-eval/img_quality_eval and my application app is in img-quality-eval/app.
