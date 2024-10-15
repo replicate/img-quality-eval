@@ -1,10 +1,14 @@
 img-quality-eval is a web app for evaluating outputs from different text-to-image models. It's a minimal Django-with-postgres-and-celery backend and a React frontend with tailwind for styles.
 
-The user flow is:
+The user flow is either (data form flow):
 1. A form to enter Replicate API key, upload data, and select models
 2. When submitting the form, you're redirected to a results page
 
-The form has the following inputs:
+or (replicate model flow):
+1. A form to enter Replicate API key, select models, prompt input, other inputs, and select models
+2. When submitting the form, you're redirected to a results page
+
+The data form has the following inputs:
 * Replicate API key (secret str)
 * Title (str)
 * Data (file upload)
@@ -18,6 +22,12 @@ The data is a .jsonl file where each row has the following format:
 
 where `"prompt"` is optional.
 
+The replicate model form has the following inputs:
+* Replicate API key (secret str)
+* Title (str)
+* Replicate prediction models (one or more, each one has a model input, a prompt name input, and zero or more additional inputs)
+* Models (checkboxes)
+
 Models has the following options (where multiple can be selected):
 * DreamSim (the first image will be treated as a reference image, and subsequent images will be test images)
 * ImageReward (requires prompt)
@@ -30,7 +40,7 @@ When the form is submitted, the data is validated:
 * The general format is validated with pydantic
 * All rows must either have a prompt or no prompt
 
-When the form is submitted, a number of Replicate predictions are kicked off:
+When the data form is submitted, a number of Replicate predictions are kicked off:
 * The input data is sharded into chunks of 100 rows
 * If DreamSim is selected, predictions are sent to replicate.com/andreasjansson/dreamsim using the Replicate API. In each prediction the 'images' input will be a comma-separated list of image URLs, where the first URL is the reference image and the following images are test images. This is handled by a celery queue.
 * If any of the other models are selected, predictions are sent to replicate.com/andreasjansson/flash-eval using the Replicate API. In each prediction the 'prompts_and_images' input will be a newline-separated list of prompt/image URL pairs. Prompt/image URL pairs are formatted as `<prompt>:<image1>[,<image2>[,<image3>[,...]]]`, i.e. a prompt followed by a colon followed by one or more comma-separated image URLs, and the 'models' input will be a comma-separated list of models to use to evaluate.

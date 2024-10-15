@@ -1,5 +1,3 @@
-// app/static/js/results.js
-
 function ResultsPage() {
     const [results, setResults] = React.useState(null);
     const [enabledModels, setEnabledModels] = React.useState([]);
@@ -11,8 +9,7 @@ function ResultsPage() {
                 const response = await fetch(`/api/results/${evalId}/`);
                 if (response.ok) {
                     const data = await response.json();
-                    setResults(data);
-                    console.log(data);
+                    setResults(data.data);
                     setEnabledModels(data.enabled_models || []);
                     setCompleted(data.completed);
                 } else {
@@ -26,7 +23,6 @@ function ResultsPage() {
         fetchResults();
         const intervalId = setInterval(() => {
             if (completed) {
-                console.log("Completed all results");
                 clearInterval(intervalId);
             } else {
                 fetchResults();
@@ -43,7 +39,7 @@ function ResultsPage() {
     return (
         <div className="container mx-auto mt-10 p-6">
             <h1 className="text-3xl font-bold mb-6">Evaluation Results</h1>
-            {results.data.map((row, rowIndex) => (
+            {results.map((row, rowIndex) => (
                 <div key={rowIndex} className="mb-8 p-4 bg-gray-100 rounded-lg">
                     {row.prompt && (
                         <p className="text-lg font-semibold mb-2">Prompt: {row.prompt}</p>
@@ -51,20 +47,20 @@ function ResultsPage() {
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                         {row.images.map((image, imageIndex) => (
                             <div key={imageIndex} className="bg-white p-4 rounded-lg shadow">
-                                <img src={image.url} alt={`Image ${imageIndex + 1}`} className="w-full h-48 object-cover mb-2 rounded" />
+                                {image.url && <img src={image.url} alt={`Image ${imageIndex + 1}`} className="w-full h-48 object-cover mb-2 rounded" />}
                                 <div className="mb-2">
                                     {Object.entries(image.labels || {}).map(([key, value]) => (
                                         <span key={key} className="inline-block bg-gray-200 rounded-full px-3 py-1 text-sm font-semibold text-gray-700 mr-2 mb-2">
-                                            {key}: {value}
+                                            {key}: {value.toString()}
                                         </span>
                                     ))}
                                 </div>
                                 <div>
-                                    {enabledModels.map(model => (imageIndex == 0 && model == "DreamSim") || (
+                                    {enabledModels.map(model => (
                                         <p key={model} className="text-sm">
                                             <span className="font-semibold">{model}:</span> {
-                                                results.scores[image.url] && results.scores[image.url][model] !== undefined
-                                                    ? results.scores[image.url][model].toFixed(4)
+                                                image.scores[model] !== null
+                                                    ? image.scores[model].toFixed(4)
                                                     : 'processing...'
                                             }
                                         </p>
