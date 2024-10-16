@@ -11,6 +11,8 @@ services:
       - redis
     environment:
       - DATABASE_URL=postgres://postgres:postgres@db:5432/img_quality_eval
+      - SECRET_KEY=insecrue
+      - ENCRYPTION_KEY=insecure
 
   db:
     image: postgres:13
@@ -35,8 +37,11 @@ services:
       - redis
     environment:
       - DATABASE_URL=postgres://postgres:postgres@db:5432/img_quality_eval
-      - AWS_ACCESS_KEY_ID=${TIGRIS_ACCESS_KEY_ID:-}
-      - AWS_SECRET_ACCESS_KEY=${TIGRIS_SECRET_ACCESS_KEY:-}
+      - SECRET_KEY=insecrue
+      - ENCRYPTION_KEY=insecure
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY:-}
 
 volumes:
   postgres_data:

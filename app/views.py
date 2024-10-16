@@ -1,3 +1,8 @@
+# TODO:
+# * seed input
+# * aggregate predict_time and scores
+# * don't show DreamSim on first output
+
 import random
 import uuid
 import json
@@ -7,6 +12,7 @@ from django.views.decorators.csrf import csrf_exempt
 from .models import Evaluation, Row, Example, ModelScore
 from .tasks import evaluate_chunk, generate_image
 from .data import load_input_data
+from .encryption import encrypt_key
 
 CHUNK_SIZE = 100
 
@@ -22,7 +28,7 @@ def data_form(request):
 @csrf_exempt
 def submit_evaluation(request):
     if request.method == "POST":
-        api_key = request.POST.get("api_key")
+        api_key = encrypt_key(request.POST["api_key"])
         title = request.POST.get("title")
         data_file = request.FILES.get("data")
         models = request.POST.getlist("models")
@@ -65,7 +71,7 @@ def submit_evaluation(request):
 def submit_replicate_model(request):
     if request.method == "POST":
         data = json.loads(request.body)
-        api_key = data.get("api_key")
+        api_key = encrypt_key(data["api_key"])
         title = data.get("title")
         prompt_dataset = data.get("prompt_dataset")
         custom_prompts = data.get("custom_prompts")

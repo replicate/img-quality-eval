@@ -8,13 +8,24 @@ import json
 import tempfile
 import boto3
 import requests
+from django.conf import settings
 from celery import shared_task
 import replicate
-from dotenv import load_dotenv
 from .models import Evaluation, Row, Example, ModelScore
+from .encryption import decrypt_key
 
-load_dotenv(override=True)
-s3 = boto3.client("s3", endpoint_url="https://fly.storage.tigris.dev")
+s3 = boto3.client(
+    "s3",
+    endpoint_url=settings.AWS_ENDPOINT_URL_S3,
+    region_name=settings.AWS_REGION,
+    aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
+    aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
+)
+
+
+
+print(f"access_key: {settings.AWS_ACCESS_KEY_ID}")
+print(f"secret: {settings.AWS_SECRET_ACCESS_KEY}")
 
 
 @shared_task
@@ -23,7 +34,7 @@ def evaluate_chunk(eval_id, api_key, row_ids):
     models = evaluation.enabled_models
     rows = Row.objects.filter(id__in=row_ids).prefetch_related("examples")
 
-    client = replicate.Client(api_token=api_key)
+    client = replicate.Client(api_token=decrypt_key(api_key))
 
     if "DreamSim" in models:
         dreamsim_prediction = dreamsim_create_prediction(client, rows)
@@ -38,7 +49,7 @@ def evaluate_chunk(eval_id, api_key, row_ids):
 
 @shared_task
 def generate_image(eval_id, api_key, row_id, example_id, model_group, seed):
-    client = replicate.Client(api_token=api_key)
+    client = replicate.Client(api_token=decrypt_key(api_key))
     row = Row.objects.get(id=row_id)
     example = Example.objects.get(id=example_id)
 
@@ -70,11 +81,12 @@ def generate_image(eval_id, api_key, row_id, example_id, model_group, seed):
     cache_key = f"{version.id}/{input_hash}"
 
     # Check if output is cached
-    output_url, labels = get_cached_prediction(cache_key)
+    output_url, labels, prediction_id = get_cached_prediction(cache_key)
     if output_url:
         print(f"Cached image at {output_url}")
         example.image_url = output_url
         example.labels = labels
+        example.gen_prediction_id = prediction_id
         example.save()
     else:
         print(f"Generating prediction with inputs {inputs}")
@@ -93,23 +105,9 @@ def compute_input_hash(inputs):
     return hashlib.sha256(input_str.encode()).hexdigest()
 
 
-def get_cached_prediction(cache_key: str) -> tuple[str | None, dict | None]:
-    try:
-        metadata_file = s3.get_object(
-            Bucket="img-quality-eval", Key=f"{cache_key}.json"
-        )
-    except:
-        return None, None
-
-    metadata = json.loads(metadata_file["Body"].read())
-    file_extension = metadata["file_extension"]
-    output_url = cached_url(cache_key, file_extension)
-    return output_url, metadata["labels"]
-
-
 @shared_task
 def poll_gen_prediction(eval_id, api_key, prediction_id, row_id, model, cache_key):
-    client = replicate.Client(api_token=api_key)
+    client = replicate.Client(api_token=decrypt_key(api_key))
     prediction = client.predictions.get(prediction_id)
 
     if prediction.status == "succeeded":
@@ -142,19 +140,35 @@ def cached_url(cache_key, file_extension):
     )
 
 
+def get_cached_prediction(cache_key: str) -> tuple[str | None, dict | None, str | None]:
+    try:
+        metadata_file = s3.get_object(
+            Bucket="img-quality-eval", Key=f"{cache_key}.json"
+        )
+    except:
+        return None, None, None
+
+    metadata = json.loads(metadata_file["Body"].read())
+    file_extension = metadata["file_extension"]
+    output_url = cached_url(cache_key, file_extension)
+    return output_url, metadata["labels"], metadata["prediction_id"]
+
+
 def cache_prediction(
-    cache_key: str, output_url: str, labels: dict, file_extension: str
+    cache_key: str, output_url: str, labels: dict, prediction_id, file_extension: str
 ) -> None:
-    # Save metadata
-    metadata = {"labels": labels, "file_extension": file_extension}
+    with download(output_url) as local_path:
+        s3.upload_file(local_path, "img-quality-eval", f"{cache_key}.{file_extension}")
+
+    metadata = {
+        "labels": labels,
+        "file_extension": file_extension,
+        "prediction_id": prediction_id,
+    }
     with tempfile.NamedTemporaryFile(mode="w", delete=False) as temp:
         json.dump(metadata, temp)
         temp.flush()
         s3.upload_file(temp.name, "img-quality-eval", f"{cache_key}.json")
-
-    # Save output
-    with download(output_url) as local_path:
-        s3.upload_file(local_path, "img-quality-eval", f"{cache_key}.{file_extension}")
 
 
 def row_is_complete(row_id):
@@ -188,7 +202,7 @@ def handle_gen_output(eval_id, api_key, prediction, row_id, model, cache_key):
         print(f"Unexpected output format for model {model}: {output}")
         return
 
-    cache_prediction(cache_key, image_url, labels, file_extension)
+    cache_prediction(cache_key, image_url, labels, prediction.id, file_extension)
 
     example.image_url = cached_url(cache_key, file_extension)
     example.labels = labels
@@ -253,7 +267,7 @@ def flash_eval_create_prediction(client, rows, models):
 
 @shared_task
 def poll_eval_prediction(eval_id, api_key, prediction_id, model_type):
-    client = replicate.Client(api_token=api_key)
+    client = replicate.Client(api_token=decrypt_key(api_key))
     prediction = client.predictions.get(prediction_id)
     evaluation = Evaluation.objects.get(eval_id=eval_id)
 

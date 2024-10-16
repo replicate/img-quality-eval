@@ -62,64 +62,107 @@ This is the instructions for the app:
 
 ## USER:
 
-Implement duck_type
+I've made some changes to settings.py and introduced some new env vars. Make sure docker-compose.yaml is up to date and setting the required vars
 
 ## ASSISTANT:
 
-Certainly! Here's an implementation of the `duck_type` function that you can add to your `app/views.py` file:
+Certainly! I'll update the `docker-compose.yaml` file to include the new environment variables and ensure it's compatible with the changes you've made to `settings.py`. Here's an updated version of the `docker-compose.yaml` file:
 
-```python
-def duck_type(inputs: dict[str, str]) -> dict[str, str | int | float | bool]:
-    def try_convert(value: str) -> str | int | float | bool:
-        # Try to convert to bool
-        if value.lower() in ('true', 'false'):
-            return value.lower() == 'true'
+```yaml
+version: '3.8'
 
-        # Try to convert to int
-        try:
-            return int(value)
-        except ValueError:
-            pass
+services:
+  web:
+    build: .
+    command: python manage.py runserver 0.0.0.0:8000
+    volumes:
+      - .:/app
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
+      - redis
+    environment:
+      - DATABASE_URL=postgres://postgres:postgres@db:5432/img_quality_eval
+      - SECRET_KEY=${SECRET_KEY:-your_default_secret_key}
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY:-your_default_encryption_key}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-}
+      - AWS_ENDPOINT_URL_S3=${AWS_ENDPOINT_URL_S3:-https://fly.storage.tigris.dev}
+      - AWS_REGION=${AWS_REGION:-auto}
 
-        # Try to convert to float
-        try:
-            return float(value)
-        except ValueError:
-            pass
+  db:
+    image: postgres:13
+    volumes:
+      - postgres_data:/var/lib/postgresql/data/
+    environment:
+      - POSTGRES_DB=img_quality_eval
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
 
-        # If all else fails, return the original string
-        return value
+  redis:
+    image: redis:6
 
-    return {key: try_convert(value) for key, value in inputs.items()}
+  celery:
+    build: .
+    command: celery -A img_quality_eval worker --loglevel=info
+    volumes:
+      - .:/app
+    depends_on:
+      - db
+      - redis
+    environment:
+      - DATABASE_URL=postgres://postgres:postgres@db:5432/img_quality_eval
+      - SECRET_KEY=${SECRET_KEY:-your_default_secret_key}
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY:-your_default_encryption_key}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-}
+      - AWS_ENDPOINT_URL_S3=${AWS_ENDPOINT_URL_S3:-https://fly.storage.tigris.dev}
+      - AWS_REGION=${AWS_REGION:-auto}
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+
+volumes:
+  postgres_data:
 ```
 
-This `duck_type` function takes a dictionary with string keys and string values, and attempts to convert each value to the most appropriate type (boolean, integer, float, or string). Here's how it works:
+This updated `docker-compose.yaml` file includes the following changes:
 
-1. We define an inner function `try_convert` that attempts to convert a single string value to the most appropriate type.
+1. Added new environment variables for both the `web` and `celery` services:
+   - `SECRET_KEY`
+   - `ENCRYPTION_KEY`
+   - `AWS_ACCESS_KEY_ID`
+   - `AWS_SECRET_ACCESS_KEY`
+   - `AWS_ENDPOINT_URL_S3`
+   - `AWS_REGION`
 
-2. For each value, it first checks if it's a boolean ("true" or "false", case-insensitive).
+2. Set default values for some variables using the `${VAR:-default}` syntax. This allows you to override these values by setting environment variables on your host machine.
 
-3. If it's not a boolean, it tries to convert to an integer.
+3. Added `CELERY_BROKER_URL` and `CELERY_RESULT_BACKEND` to the `celery` service to ensure it can connect to Redis.
 
-4. If that fails, it tries to convert to a float.
+4. Kept the existing `DATABASE_URL` configuration.
 
-5. If all conversions fail, it leaves the value as a string.
+To use this `docker-compose.yaml` file:
 
-6. The main function uses a dictionary comprehension to apply `try_convert` to all values in the input dictionary.
+1. Save it in the root directory of your project (same level as the `Dockerfile`).
 
-This implementation will convert values as follows:
+2. Create a `.env` file in the same directory with your actual secret values:
 
-- "true" or "false" (case-insensitive) to `True` or `False`
-- "123" to the integer `123`
-- "3.14" to the float `3.14`
-- Any other string will remain a string
-
-You can add this function to your `app/views.py` file, right after the `get_prompts` function. Make sure to import the necessary types at the top of the file:
-
-```python
-from typing import Union
+```
+SECRET_KEY=your_actual_secret_key
+ENCRYPTION_KEY=your_actual_encryption_key
+AWS_ACCESS_KEY_ID=your_actual_aws_access_key_id
+AWS_SECRET_ACCESS_KEY=your_actual_aws_secret_access_key
+AWS_ENDPOINT_URL_S3=https://fly.storage.tigris.dev
+AWS_REGION=auto
 ```
 
-Now you can use this `duck_type` function in your `submit_replicate_model` view to convert the input values to their appropriate types before storing them in the database.
+3. Run your application using:
+
+```
+docker-compose up --build
+```
+
+This setup will ensure that your Django application has access to all the required environment variables, including the new ones you've added to `settings.py`. The secret values will be loaded from your `.env` file or use the default values if not provided.
 
 ## USER:

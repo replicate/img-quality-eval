@@ -1,9 +1,13 @@
 import os
 from pathlib import Path
+import environ
+
+env = environ.Env()
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-SECRET_KEY = "your-secret-key-here"
+SECRET_KEY = env("SECRET_KEY")
+ENCRYPTION_KEY = env("ENCRYPTION_KEY")
 
 DEBUG = True
 
@@ -50,14 +54,7 @@ TEMPLATES = [
 WSGI_APPLICATION = "img_quality_eval.wsgi.application"
 
 DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.postgresql",
-        "NAME": "img_quality_eval",
-        "USER": "postgres",
-        "PASSWORD": "postgres",
-        "HOST": "db",
-        "PORT": "5432",
-    }
+    "default": env.db("DATABASE_URL"),
 }
 
 AUTH_PASSWORD_VALIDATORS = [
@@ -89,5 +86,11 @@ STATICFILES_DIRS = [os.path.join(BASE_DIR, "app/static")]
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 # Celery settings
-CELERY_BROKER_URL = "redis://redis:6379/0"
-CELERY_RESULT_BACKEND = "redis://redis:6379/0"
+CELERY_BROKER_URL = env("CELERY_BROKER_URL", default="redis://redis:6379/0")
+CELERY_RESULT_BACKEND = env("CELERY_RESULT_BACKEND", default="redis://redis:6379/0")
+
+# AWS
+AWS_ACCESS_KEY_ID = env("AWS_ACCESS_KEY_ID", default="")
+AWS_SECRET_ACCESS_KEY = env("AWS_SECRET_ACCESS_KEY", default="")
+AWS_ENDPOINT_URL_S3 = "https://fly.storage.tigris.dev"
+AWS_REGION = "auto"
