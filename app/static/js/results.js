@@ -79,7 +79,7 @@ function ResultRow({ row, enabledModels, setModalImage }) {
 }
 
 function Prompt({ prompt }) {
-    return <p className="text-lg font-semibold mb-2">Prompt: {prompt}</p>;
+    return <p className="text-lg font-semibold mb-2">{prompt}</p>;
 }
 
 function ImageCard({ image, imageIndex, enabledModels, setModalImage }) {
@@ -133,6 +133,7 @@ function Labels({ labels, genPredictionId }) {
         <div className="mb-2">
             {labels && labels.model && <ModelLabel model={labels.model} />}
             {labels && labels.predict_time && <PredictTimeLabel time={labels.predict_time} predictionId={genPredictionId} />}
+            {labels && !labels.predict_time && genPredictionId && <PredictionLoading predictionId={genPredictionId} />}
             {Object.entries(labels || {})
                 .filter(([key]) => key !== 'model' && key !== 'predict_time')
                 .map(([key, value]) => <OtherLabel key={key} keyName={key} value={value} />)}
@@ -171,6 +172,18 @@ function PredictTimeLabel({ time, predictionId }) {
             <p className="text-sm">
                 Predict time: {' '}
                 {time.toFixed(2)}s
+            </p>
+        </a>
+    );
+}
+
+function PredictionLoading({ predictionId }) {
+    const predictionUrl = `https://replicate.com/p/${predictionId}`;
+
+    return (
+        <a href={predictionUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+            <p className="text-sm">
+                Prediction loading...
             </p>
         </a>
     );

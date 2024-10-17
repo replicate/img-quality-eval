@@ -29,7 +29,7 @@ print(f"secret: {settings.AWS_SECRET_ACCESS_KEY}")
 
 
 @shared_task
-def evaluate_chunk(eval_id, api_key, row_ids):
+def evaluate_chunk(api_key, eval_id, row_ids):
     evaluation = Evaluation.objects.get(eval_id=eval_id)
     models = evaluation.enabled_models
     rows = Row.objects.filter(id__in=row_ids).prefetch_related("examples")
@@ -71,11 +71,17 @@ def generate_image(api_key, example_id, model, inputs):
     # Check if output is cached
     output_url, labels, prediction_id = get_cached_prediction(cache_key)
     if output_url:
-        print(f"Cached image at {output_url}")
+        print(f"Found cached image at {output_url}")
         example.image_url = output_url
         example.labels = labels
         example.gen_prediction_id = prediction_id
         example.save()
+
+        row = example.row
+        if row_is_complete(row):
+            eval_id = row.evaluation.eval_id
+            evaluate_chunk.delay(api_key, eval_id, [row.id])
+
     else:
         print(f"Generating prediction with inputs {inputs}")
         prediction = client.predictions.create(version=version, input=inputs)
@@ -193,7 +199,7 @@ def handle_gen_output(api_key, example_id, prediction, model, cache_key):
     example.save()
 
     row = example.row
-    if row_is_complete(example.row):
+    if row_is_complete(row):
         eval_id = row.evaluation.id
         evaluate_chunk.delay(api_key, eval_id, [row.id])
 

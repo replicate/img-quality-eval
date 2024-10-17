@@ -63,7 +63,7 @@ def submit_evaluation(request):
 
         for i in range(0, len(row_ids), CHUNK_SIZE):
             chunk = row_ids[i : i + CHUNK_SIZE]
-            evaluate_chunk.delay(eval_id, api_key, chunk)
+            evaluate_chunk.delay(api_key, eval_id, chunk)
 
         return redirect("results", eval_id=eval_id)
 
