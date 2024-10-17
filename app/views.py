@@ -9,10 +9,13 @@ import json
 from django.shortcuts import render, redirect, get_object_or_404
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
+from django.urls import reverse
+import pydantic
 from .models import Evaluation, Row, Example, ModelScore
 from .tasks import evaluate_chunk, generate_image
 from .data import load_input_data
 from .encryption import encrypt_key
+from .schemas import GenerateAndEvaluateRequest
 
 CHUNK_SIZE = 100
 
@@ -68,34 +71,49 @@ def submit_evaluation(request):
 
 
 @csrf_exempt
-def submit_replicate_model(request):
+def generate_and_evaluate(request):
     if request.method == "POST":
-        data = json.loads(request.body)
-        api_key = encrypt_key(data["api_key"])
-        title = data.get("title")
-        prompt_dataset = data.get("prompt_dataset")
-        custom_prompts = data.get("custom_prompts")
-        model_groups = data.get("model_groups")
-        for group in model_groups:
-            group["input_values"] = duck_type(group["input_values"])
+        try:
+            data = GenerateAndEvaluateRequest.model_validate_json(request.body)
+        except pydantic.ValidationError as e:
+            return JsonResponse({"error": str(e)}, status=400)
+
+        api_key = encrypt_key(data.api_key)
+        title = data.title
 
         eval_id = str(uuid.uuid4())
         evaluation = Evaluation.objects.create(
-            eval_id=eval_id, title=title, enabled_models=data["models"]
+            eval_id=eval_id,
+            title=title,
+            enabled_models=data.eval_models,
         )
 
-        prompts = get_prompts(prompt_dataset, custom_prompts)
+        for row_data in data.rows:
+            seed = row_data.seed or random.randint(0, 1000000)
+            prompt = row_data.prompt
+            row = Row.objects.create(evaluation=evaluation, prompt=prompt, seed=seed)
 
-        for prompt in prompts:
-            row = Row.objects.create(evaluation=evaluation, prompt=prompt)
-            seed = random.randint(0, 1000000)
-            for group in model_groups:
-                labels = {"model": group["model"]}
-                labels |= group["input_values"]
+            for example_data in row_data.examples:
+                labels = {"model": example_data.model}
+                labels |= example_data.inputs
                 example = Example.objects.create(row=row, labels=labels)
-                generate_image.delay(eval_id, api_key, row.id, example.id, group, seed)
 
-        return redirect("results", eval_id=eval_id)
+                inputs = example_data.inputs
+                inputs[example_data.prompt_input] = row_data.prompt
+                inputs[example_data.seed_input] = seed
+
+                generate_image.delay(
+                    api_key=api_key,
+                    example_id=example.id,
+                    model=example_data.model,
+                    inputs=example_data.inputs,
+                )
+
+        results_url = request.build_absolute_uri(reverse('results', args=[eval_id]))
+        return JsonResponse({
+            "evaluation_id": eval_id,
+            "results_url": results_url
+        })
 
     return JsonResponse({"error": "Invalid request method"}, status=405)
 
@@ -119,11 +137,12 @@ def api_results(request, eval_id):
 
     for row in rows:
         row_data = {"prompt": row.prompt, "images": []}
-        for index, example in enumerate(row.examples.all()):
+        for index, example in enumerate(row.examples.all().order_by("id")):
             image_data = {
                 "url": example.image_url,
                 "labels": example.labels,
                 "scores": {},
+                "gen_prediction_id": example.gen_prediction_id,
             }
 
             for model in evaluation.enabled_models:

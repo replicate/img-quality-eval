@@ -62,107 +62,43 @@ This is the instructions for the app:
 
 ## USER:
 
-I've made some changes to settings.py and introduced some new env vars. Make sure docker-compose.yaml is up to date and setting the required vars
+In api_results, order examples in rows based on id ascending
 
 ## ASSISTANT:
 
-Certainly! I'll update the `docker-compose.yaml` file to include the new environment variables and ensure it's compatible with the changes you've made to `settings.py`. Here's an updated version of the `docker-compose.yaml` file:
+Certainly! I'll modify the `api_results` function in the `views.py` file to order the examples in rows based on their id in ascending order. Here's the updated function:
 
-```yaml
-version: '3.8'
+File: `img-quality-eval/app/views.py`
 
-services:
-  web:
-    build: .
-    command: python manage.py runserver 0.0.0.0:8000
-    volumes:
-      - .:/app
-    ports:
-      - "8000:8000"
-    depends_on:
-      - db
-      - redis
-    environment:
-      - DATABASE_URL=postgres://postgres:postgres@db:5432/img_quality_eval
-      - SECRET_KEY=${SECRET_KEY:-your_default_secret_key}
-      - ENCRYPTION_KEY=${ENCRYPTION_KEY:-your_default_encryption_key}
-      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-}
-      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-}
-      - AWS_ENDPOINT_URL_S3=${AWS_ENDPOINT_URL_S3:-https://fly.storage.tigris.dev}
-      - AWS_REGION=${AWS_REGION:-auto}
+```python
+from django.shortcuts import get_object_or_404
+from django.http import JsonResponse
+from .models import Evaluation, Row, Example, ModelScore
 
-  db:
-    image: postgres:13
-    volumes:
-      - postgres_data:/var/lib/postgresql/data/
-    environment:
-      - POSTGRES_DB=img_quality_eval
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
+def api_results(request, eval_id):
+    evaluation = get_object_or_404(Evaluation, eval_id=eval_id)
+    rows = Row.objects.filter(evaluation=evaluation).prefetch_related("examples")
 
-  redis:
-    image: redis:6
+    results = {
+        "data": [],
+        "enabled_models": evaluation.enabled_models,
+        "completed": True,
+    }
 
-  celery:
-    build: .
-    command: celery -A img_quality_eval worker --loglevel=info
-    volumes:
-      - .:/app
-    depends_on:
-      - db
-      - redis
-    environment:
-      - DATABASE_URL=postgres://postgres:postgres@db:5432/img_quality_eval
-      - SECRET_KEY=${SECRET_KEY:-your_default_secret_key}
-      - ENCRYPTION_KEY=${ENCRYPTION_KEY:-your_default_encryption_key}
-      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-}
-      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-}
-      - AWS_ENDPOINT_URL_S3=${AWS_ENDPOINT_URL_S3:-https://fly.storage.tigris.dev}
-      - AWS_REGION=${AWS_REGION:-auto}
-      - CELERY_BROKER_URL=redis://redis:6379/0
-      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+    for row in rows:
+        row_data = {"prompt": row.prompt, "images": []}
+        # Order examples by id ascending
+        for example in row.examples.all().order_by('id'):
+            image_data = {
+                "url": example.image_url,
+                "labels": example.labels,
+                "scores": {},
+                "gen_prediction_id": example.gen_prediction_id,
+            }
 
-volumes:
-  postgres_data:
-```
-
-This updated `docker-compose.yaml` file includes the following changes:
-
-1. Added new environment variables for both the `web` and `celery` services:
-   - `SECRET_KEY`
-   - `ENCRYPTION_KEY`
-   - `AWS_ACCESS_KEY_ID`
-   - `AWS_SECRET_ACCESS_KEY`
-   - `AWS_ENDPOINT_URL_S3`
-   - `AWS_REGION`
-
-2. Set default values for some variables using the `${VAR:-default}` syntax. This allows you to override these values by setting environment variables on your host machine.
-
-3. Added `CELERY_BROKER_URL` and `CELERY_RESULT_BACKEND` to the `celery` service to ensure it can connect to Redis.
-
-4. Kept the existing `DATABASE_URL` configuration.
-
-To use this `docker-compose.yaml` file:
-
-1. Save it in the root directory of your project (same level as the `Dockerfile`).
-
-2. Create a `.env` file in the same directory with your actual secret values:
-
-```
-SECRET_KEY=your_actual_secret_key
-ENCRYPTION_KEY=your_actual_encryption_key
-AWS_ACCESS_KEY_ID=your_actual_aws_access_key_id
-AWS_SECRET_ACCESS_KEY=your_actual_aws_secret_access_key
-AWS_ENDPOINT_URL_S3=https://fly.storage.tigris.dev
-AWS_REGION=auto
-```
-
-3. Run your application using:
-
-```
-docker-compose up --build
-```
-
-This setup will ensure that your Django application has access to all the required environment variables, including the new ones you've added to `settings.py`. The secret values will be loaded from your `.env` file or use the default values if not provided.
-
-## USER:
+            for model in evaluation.enabled_models:
+                if model == "DreamSim" and example.id != row.examples.first().id:
+                    ref_image = row.examples.first().image_url
+                    score = ModelScore.objects.filter(
+                        evaluation=evaluation,
+                        image

@@ -14,6 +14,7 @@ class Row(models.Model):
         Evaluation, on_delete=models.CASCADE, related_name="rows"
     )
     prompt = models.TextField(null=True, blank=True)
+    seed = models.BigIntegerField(null=True, blank=True)
 
 
 class Example(models.Model):

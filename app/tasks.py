@@ -38,25 +38,19 @@ def evaluate_chunk(eval_id, api_key, row_ids):
 
     if "DreamSim" in models:
         dreamsim_prediction = dreamsim_create_prediction(client, rows)
-        poll_eval_prediction.delay(eval_id, api_key, dreamsim_prediction.id, "DreamSim")
+        poll_eval_prediction.delay(api_key, eval_id, dreamsim_prediction.id, "DreamSim")
 
     if set(models) & {"ImageReward", "Aesthetic", "CLIP", "BLIP", "PickScore"}:
         flash_eval_prediction = flash_eval_create_prediction(client, rows, models)
         poll_eval_prediction.delay(
-            eval_id, api_key, flash_eval_prediction.id, "FlashEval"
+            api_key, eval_id, flash_eval_prediction.id, "FlashEval"
         )
 
 
 @shared_task
-def generate_image(eval_id, api_key, row_id, example_id, model_group, seed):
+def generate_image(api_key, example_id, model, inputs):
     client = replicate.Client(api_token=decrypt_key(api_key))
-    row = Row.objects.get(id=row_id)
     example = Example.objects.get(id=example_id)
-
-    model = model_group["model"]
-    prompt_input_name = model_group["promptInputName"]
-    seed_input_name = model_group["seedInputName"]
-    input_values = model_group["input_values"]
 
     model_owner, model_name = model.split("/")
     model_name, model_version = (
@@ -69,12 +63,6 @@ def generate_image(eval_id, api_key, row_id, example_id, model_group, seed):
         )
     else:
         version = client.models.get(f"{model_owner}/{model_name}").latest_version
-
-    inputs = {
-        prompt_input_name: row.prompt,
-        seed_input_name: seed,
-    }
-    inputs.update({k: v for k, v in input_values.items()})
 
     # Compute hash for caching
     input_hash = compute_input_hash(inputs)
@@ -94,7 +82,7 @@ def generate_image(eval_id, api_key, row_id, example_id, model_group, seed):
         example.gen_prediction_id = prediction.id
         example.save()
         poll_gen_prediction.apply_async(
-            args=[eval_id, api_key, prediction.id, row_id, model, cache_key],
+            args=[api_key, example_id, prediction.id, model, cache_key],
             countdown=2,
         )
 
@@ -106,19 +94,19 @@ def compute_input_hash(inputs):
 
 
 @shared_task
-def poll_gen_prediction(eval_id, api_key, prediction_id, row_id, model, cache_key):
+def poll_gen_prediction(api_key, example_id, prediction_id, model, cache_key):
     client = replicate.Client(api_token=decrypt_key(api_key))
     prediction = client.predictions.get(prediction_id)
 
     if prediction.status == "succeeded":
-        handle_gen_output(eval_id, api_key, prediction, row_id, model, cache_key)
+        handle_gen_output(api_key, example_id, prediction, model, cache_key)
     elif prediction.status in ["failed", "canceled"]:
-        example = Example.objects.get(row_id=row_id, labels__model=model)
+        example = Example.objects.get(id=example_id)
         example.gen_prediction_failed = True
         example.save()
     else:
         poll_gen_prediction.apply_async(
-            args=[eval_id, api_key, prediction_id, row_id, model, cache_key],
+            args=[api_key, example_id, prediction_id, model, cache_key],
             countdown=10,
         )
 
@@ -171,8 +159,7 @@ def cache_prediction(
         s3.upload_file(temp.name, "img-quality-eval", f"{cache_key}.json")
 
 
-def row_is_complete(row_id):
-    row = Row.objects.get(id=row_id)
+def row_is_complete(row: Row):
     examples = row.examples.all()
 
     return all(
@@ -180,7 +167,7 @@ def row_is_complete(row_id):
     )
 
 
-def handle_gen_output(eval_id, api_key, prediction, row_id, model, cache_key):
+def handle_gen_output(api_key, example_id, prediction, model, cache_key):
     output = prediction.output
 
     predict_time = prediction.metrics["predict_time"]
@@ -188,12 +175,7 @@ def handle_gen_output(eval_id, api_key, prediction, row_id, model, cache_key):
     # Save output to cache
     file_extension = get_file_extension(output)
 
-    labels = {
-        "model": model,
-        "predict_time": predict_time,
-        **prediction.input,
-    }
-    example = Example.objects.get(row_id=row_id, gen_prediction_id=prediction.id)
+    example = Example.objects.get(id=example_id)
     if isinstance(output, list):
         image_url = output[0]
     elif isinstance(output, str):
@@ -202,14 +184,18 @@ def handle_gen_output(eval_id, api_key, prediction, row_id, model, cache_key):
         print(f"Unexpected output format for model {model}: {output}")
         return
 
+    labels = example.labels
+    labels["predict_time"] = predict_time
     cache_prediction(cache_key, image_url, labels, prediction.id, file_extension)
 
     example.image_url = cached_url(cache_key, file_extension)
     example.labels = labels
     example.save()
 
-    if row_is_complete(row_id):
-        evaluate_chunk.delay(eval_id, api_key, [row_id])
+    row = example.row
+    if row_is_complete(example.row):
+        eval_id = row.evaluation.id
+        evaluate_chunk.delay(api_key, eval_id, [row.id])
 
 
 def dreamsim_create_prediction(client: replicate.Client, rows):
@@ -266,7 +252,7 @@ def flash_eval_create_prediction(client, rows, models):
 
 
 @shared_task
-def poll_eval_prediction(eval_id, api_key, prediction_id, model_type):
+def poll_eval_prediction(api_key, eval_id, prediction_id, model_type):
     client = replicate.Client(api_token=decrypt_key(api_key))
     prediction = client.predictions.get(prediction_id)
     evaluation = Evaluation.objects.get(eval_id=eval_id)
@@ -279,7 +265,7 @@ def poll_eval_prediction(eval_id, api_key, prediction_id, model_type):
     else:
         # Re-queue the task to check again later
         poll_eval_prediction.apply_async(
-            args=[eval_id, api_key, prediction_id, model_type],
+            args=[api_key, eval_id, prediction_id, model_type],
             countdown=10,  # Wait 10 seconds before checking again
         )
 
