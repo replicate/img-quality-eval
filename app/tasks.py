@@ -209,16 +209,16 @@ def dreamsim_create_prediction(client: replicate.Client, rows):
     dreamsim_version = client.models.get("andreasjansson/dreamsim").latest_version
     assert dreamsim_version
 
-    input_images = []
+    input_strings = []
     for row in rows:
         images = [example.image_url for example in row.examples.all()]
-        input_images.extend(images)
+        input_strings.append(image_separator.join(images))
 
-    input_images_str = image_separator.join(input_images)
+    input_str = "\n".join(input_strings)
 
     prediction = client.predictions.create(
         version=dreamsim_version.id,
-        input={"images": input_images_str, "separator": image_separator},
+        input={"images": input_str, "separator": image_separator},
     )
 
     print(f"Running dreamsim prediction https://replicate.com/p/{prediction.id}")
