@@ -1,0 +1,196 @@
+{% extends "form_base.html" %}
+
+{% block title %}Image quality evaluation - API documentation{% endblock %}
+
+{% block api_docs_nav_class %}bg-blue-500 text-white{% endblock %}
+
+{% block content %}
+{{ block.super }}
+<div class="container mx-auto mt-10 px-0 max-w-3xl">
+    <h2 class="text-2xl font-bold mt-6 mb-4">Generate-and-evaluate endpoint</h2>
+    <p class="mb-4">This endpoint allows you to submit a request to generate images using Replicate models and evaluate them using selected evaluation models.</p>
+
+    <h3 class="text-xl font-bold mt-4 mb-2">Endpoint</h3>
+    <pre class="bg-gray-100 p-2 text-sm rounded"><code>POST /generate-and-evaluate</code></pre>
+
+    <h3 class="text-xl font-bold mt-4 mb-2">Input JSON</h3>
+    <pre class="bg-gray-100 p-2 text-sm rounded"><code>
+{
+  "api_key": "your_replicate_api_key",
+  "title": "Evaluation Title",
+  "rows": [
+    {
+      "prompt": "A prompt for image generation",
+      "seed": 12345,
+      "examples": [
+        {
+          "model": "owner/model_name[:version]",
+          "prompt_input": "prompt_input_name",  # optional, defaults to "prompt"
+          "seed_input": "seed_input_name",  # optional, defaults to "seed"
+          "inputs": {
+            "key": "value",
+            ...
+          }
+        }
+      ]
+    }
+  ],
+  "eval_models": ["ImageReward", "Aesthetic", ...]
+}
+    </code></pre>
+
+    <h3 class="text-xl font-bold mt-4 mb-2">Example curl command</h3>
+    <pre class="bg-gray-100 p-2 text-sm rounded"><code>
+curl -X POST http://localhost:8000/generate-and-evaluate \
+  -H "Content-Type: application/json" \
+  -d '{
+    "api_key": "your_replicate_api_key",
+    "title": "Test Evaluation",
+    "rows": [
+      {
+        "prompt": "A beautiful sunset over the ocean",
+        "seed": 42,
+        "examples": [
+          {
+            "model": "stability-ai/stable-diffusion:db21e45d3f7023abc2a46ee38a23973f6dce16bb082a930b0c49861f96d1e5bf",
+            "prompt_input": "prompt",
+            "seed_input": "seed",
+            "inputs": {
+              "width": 512,
+              "height": 512,
+              "num_inference_steps": 50
+            }
+          }
+        ]
+      }
+    ],
+    "eval_models": ["ImageReward", "Aesthetic", "CLIP"]
+  }'
+    </code></pre>
+
+    <h3 class="text-xl font-bold mt-4 mb-2">Response:</h3>
+    <p>Upon successful submission, you will receive a JSON response with the evaluation ID and a URL to view the results:</p>
+    <pre class="bg-gray-100 p-2 text-sm rounded"><code>
+{
+  "evaluation_id": "uuid-of-the-evaluation",
+  "results_url": "http://localhost:8000/results/uuid-of-the-evaluation/"
+}
+    </code></pre>
+
+    <h3 class="text-xl font-bold mt-4 mb-2">Notes:</h3>
+    <ul class="list-disc list-inside">
+        <li>Replace <code class="text-sm">your_replicate_api_key</code> with your actual Replicate API key.</li>
+        <li>You can include multiple rows and examples per row in your request.</li>
+        <li>The <code class="text-sm">seed</code> field is optional. If not provided, a random seed will be generated.</li>
+        <li>Ensure that the model you specify is available on Replicate and that you have permission to use it.</li>
+        <li>The <code class="text-sm">eval_models</code> array should contain one or more of the supported evaluation models.</li>
+    </ul>
+
+
+    <h2 class="text-2xl font-bold mt-6 mb-4">Evaluate-images endpoint</h2>
+    <p class="mb-4">This endpoint allows you to submit existing images for evaluation using selected evaluation models.</p>
+
+    <h3 class="text-xl font-bold mt-4 mb-2">Endpoint</h3>
+    <pre class="bg-gray-100 p-2 text-sm rounded"><code>POST /api/evaluate-images</code></pre>
+
+    <h3 class="text-xl font-bold mt-4 mb-2">Input JSON</h3>
+    <pre class="bg-gray-100 p-2 text-sm rounded"><code>
+{
+  "api_key": "your_replicate_api_key",
+  "title": "Evaluation Title",
+  "data": [
+    {
+      "prompt": "A prompt for image evaluation",
+      "images": [
+        {
+          "url": "https://example.com/image1.jpg",
+          "labels": {
+            "key1": "value1",
+            "key2": "value2"
+          }
+        },
+        {
+          "url": "https://example.com/image2.jpg",
+          "labels": {
+            "key1": "value1",
+            "key2": "value2"
+          }
+        }
+      ]
+    }
+  ],
+  "models": ["ImageReward", "Aesthetic", ...]
+}
+    </code></pre>
+
+    <h3 class="text-xl font-bold mt-4 mb-2">Example curl command</h3>
+    <pre class="bg-gray-100 p-2 text-sm rounded"><code>
+curl -X POST http://localhost:8000/api/generate-and-evaluate \
+  -H "Content-Type: application/json" \
+  -d '{
+    "api_key": "YOUR_REPLICATE_API_KEY",
+    "title": "Flux Model Comparison",
+    "rows": [
+      {
+        "prompt": "the Great Pyramid",
+        "examples": [
+          {
+            "model": "black-forest-labs/flux-schnell",
+            "inputs": {
+              "go_fast": false
+            }
+          },
+          {
+            "model": "black-forest-labs/flux-schnell",
+            "inputs": {
+              "go_fast": true
+            }
+          }
+        ]
+      },
+      {
+        "prompt": "robots meditating in a vipassana retreat",
+        "examples": [
+          {
+            "model": "black-forest-labs/flux-schnell",
+            "inputs": {
+              "go_fast": false
+            }
+          },
+          {
+            "model": "black-forest-labs/flux-schnell",
+            "inputs": {
+              "go_fast": true
+            }
+          }
+        ]
+      }
+    ],
+    "eval_models": ["ImageReward", "Aesthetic", "CLIP", "BLIP", "PickScore", "DreamSim"]
+  }'
+    </code></pre>
+
+    <h3 class="text-xl font-bold mt-4 mb-2">Response:</h3>
+    <p>Upon successful submission, you will receive a JSON response with the evaluation ID and a URL to view the results:</p>
+    <pre class="bg-gray-100 p-2 text-sm rounded"><code>
+{
+  "evaluation_id": "uuid-of-the-evaluation",
+  "results_url": "http://localhost:8000/results/uuid-of-the-evaluation/"
+}
+    </code></pre>
+
+    <h3 class="text-xl font-bold mt-4 mb-2">Notes:</h3>
+    <ul class="list-disc list-inside">
+        <li>Replace <code class="text-sm">your_replicate_api_key</code> with your actual Replicate API key.</li>
+        <li>You can include multiple rows and images per row in your request.</li>
+        <li>The <code class="text-sm">prompt</code> field is optional but must be consistent across all rows (either all present or all absent).</li>
+        <li>The <code class="text-sm">labels</code> field for each image is optional.</li>
+        <li>The <code class="text-sm">eval_models</code> array should contain one or more of the supported evaluation models.</li>
+        <li>If using DreamSim, the first image in each row will be treated as the reference image.</li>
+    </ul>
+</div>
+{% endblock %}
+
+{% block content_script %}
+{% endblock %}
+</div>

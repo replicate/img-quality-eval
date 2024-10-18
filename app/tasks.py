@@ -200,7 +200,7 @@ def handle_gen_output(api_key, example_id, prediction, model, cache_key):
 
     row = example.row
     if row_is_complete(row):
-        eval_id = row.evaluation.id
+        eval_id = row.evaluation.eval_id
         evaluate_chunk.delay(api_key, eval_id, [row.id])
 
 
@@ -277,7 +277,7 @@ def poll_eval_prediction(api_key, eval_id, prediction_id, model_type):
 
 
 def save_model_score(evaluation: Evaluation, output: list[dict], model_type: str):
-    if model_type == "DreamSim":
+    if model_type == "DreamSim" and output:
         for record in output:
             for test_image, score in record["distances"].items():
                 ModelScore.objects.create(

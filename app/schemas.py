@@ -31,12 +31,22 @@ class ImageData(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     url: str
-    labels: dict[str, str | int | float | bool] | None = None
+    labels: dict[str, str | int | float | bool] = {}
 
 
 class RowData(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     prompt: str | None = None
+    seed: int | None = None
     images: list[ImageData] = Field(min_length=1)
     metadata: dict[str, str | int | float | bool] | None = None
+
+
+class EvaluateImagesRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    api_key: str
+    title: str
+    data: list[RowData]
+    eval_models: list[str]

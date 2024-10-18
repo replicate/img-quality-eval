@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Image quality evaluation{% endblock %}</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --retro-blue: #666547;
+            --retro-green: #6fcb9f;
+            --retro-red: #fb2e01;
+            --retro-yellow: #ffe28a;
+            --retro-purple: #c700b5;
+        }
+        body {
+            font-family: "Share Tech Mono", monospace;
+            font-weight: 400;
+            font-style: normal;
+            background-color: #F4F4F4;
+        }
+        .bg-blue-500 { background-color: var(--retro-blue) !important; }
+        .bg-green-500 { background-color: var(--retro-green) !important; }
+        .bg-red-500 { background-color: var(--retro-red) !important; }
+        .text-blue-600 { color: var(--retro-blue) !important; }
+        .border-gray-300 { border-color: var(--retro-blue) !important; }
+        .bg-gray-200 { background-color: #E0E0E0 !important; }
+        .text-gray-700 { color: #333333 !important; }
+        .shadow-sm { box-shadow: 3px 3px 0px rgba(0, 0, 0, 0.2) !important; }
+        input[type="text"], input[type="password"], select, textarea {
+            border: 2px solid var(--retro-blue) !important;
+            background-color: #F0F0F0 !important;
+        }
+        button, .button {
+            background-color: var(--retro-blue) !important;
+            color: white !important;
+            border: none !important;
+            padding: 0.5rem 1rem !important;
+            cursor: pointer !important;
+            transition: background-color !important;
+        }
+        button:hover, .button:hover {
+            background-color: var(--retro-purple) !important;
+        }
+        .modal-arrow {
+            background-color: rgba(0, 0, 0, 0.5);
+            border: none;
+            color: white;
+            font-size: 2rem;
+            padding: 10px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        .modal-arrow:hover {
+            background-color: rgba(0, 0, 0, 0.8);
+        }
+
+        .modal-arrow:focus {
+            outline: none;
+        }
+    </style>
+    {% block extra_head %}{% endblock %}
+</head>
+<body>
+    <div class="container mx-auto mt-10 p-6">
+        {% block content %}{% endblock %}
+    </div>
+    <script src="https://unpkg.com/react@18.3.1/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/babel-standalone@6.26.0/babel.min.js"></script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

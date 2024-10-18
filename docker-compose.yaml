@@ -2,6 +2,7 @@ services:
   web:
     build: .
     command: python manage.py runserver 0.0.0.0:8000
+    #command: python -m gunicorn img_quality_eval.asgi:application -k uvicorn.workers.UvicornWorker
     volumes:
       - .:/app
     ports:

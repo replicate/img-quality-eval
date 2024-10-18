@@ -3,6 +3,8 @@ function ResultsPage() {
     const [enabledModels, setEnabledModels] = React.useState([]);
     const [completed, setCompleted] = React.useState(false);
     const [modalImage, setModalImage] = React.useState(null);
+    const [currentRowIndex, setCurrentRowIndex] = React.useState(0);
+    const [currentImageIndex, setCurrentImageIndex] = React.useState(0);
 
     React.useEffect(() => {
         fetchResults();
@@ -16,6 +18,50 @@ function ResultsPage() {
 
         return () => clearInterval(intervalId);
     }, [completed]);
+
+    const handleKeyDown = (event) => {
+        if (modalImage) {
+            if (event.key === 'ArrowLeft') {
+                navigateImage(-1);
+            } else if (event.key === 'ArrowRight') {
+                navigateImage(1);
+            } else if (event.key === 'Escape') {
+                setModalImage(null);
+            }
+        }
+    };
+
+    React.useEffect(() => {
+        window.addEventListener('keydown', handleKeyDown);
+        return () => {
+            window.removeEventListener('keydown', handleKeyDown);
+        };
+    }, [modalImage, currentRowIndex, currentImageIndex]);
+
+    const navigateImage = (direction) => {
+        if (!results) return;
+
+        let newRowIndex = currentRowIndex;
+        let newImageIndex = currentImageIndex + direction;
+
+        if (newImageIndex < 0) {
+            newRowIndex--;
+            if (newRowIndex < 0) {
+                newRowIndex = results.length - 1;
+            }
+            newImageIndex = results[newRowIndex].images.length - 1;
+        } else if (newImageIndex >= results[newRowIndex].images.length) {
+            newRowIndex++;
+            if (newRowIndex >= results.length) {
+                newRowIndex = 0;
+            }
+            newImageIndex = 0;
+        }
+
+        setCurrentRowIndex(newRowIndex);
+        setCurrentImageIndex(newImageIndex);
+        setModalImage(results[newRowIndex].images[newImageIndex].url);
+    };
 
     const fetchResults = async () => {
         try {
@@ -33,23 +79,36 @@ function ResultsPage() {
         }
     };
 
+    const selectImage = (imageUrl, rowIndex, imageIndex) => {
+        setModalImage(imageUrl);
+        if (imageUrl) {
+            setCurrentRowIndex(rowIndex);
+            setCurrentImageIndex(imageIndex);
+        }
+    };
+
     if (!results) {
         return <LoadingMessage />;
     }
 
     return (
-        <div className="container mx-auto mt-10 p-6">
-            <h1 className="text-3xl font-bold mb-6">Evaluation Results</h1>
+        <div className="container mx-auto mt-0 p-0">
+            <h1 className="text-3xl font-bold mb-6">Evaluation results</h1>
             {results.map((row, rowIndex) => (
                 <ResultRow
                     key={rowIndex}
                     row={row}
                     enabledModels={enabledModels}
-                    setModalImage={setModalImage}
+                    selectImage={selectImage}
+                    rowIndex={rowIndex}
                 />
             ))}
             {modalImage && (
-                <ImageModal image={modalImage} onClose={() => setModalImage(null)} />
+                <ImageModal
+                    image={modalImage}
+                    onClose={() => selectImage(null)}
+                    onNavigate={navigateImage}
+                />
             )}
         </div>
     );
@@ -59,10 +118,10 @@ function LoadingMessage() {
     return <div className="text-center mt-10">Loading...</div>;
 }
 
-function ResultRow({ row, enabledModels, setModalImage }) {
+function ResultRow({ row, enabledModels, selectImage, rowIndex }) {
     return (
-        <div className="mb-8 p-4 bg-gray-100 rounded-lg">
-            {row.prompt && <Prompt prompt={row.prompt} />}
+        <div className="mb-8 p-4 border-gray-300 border rounded-lg">
+            {row.prompt && <Prompt prompt={row.prompt} seed={row.seed} />}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {row.images.map((image, imageIndex) => (
                     <ImageCard
@@ -70,7 +129,8 @@ function ResultRow({ row, enabledModels, setModalImage }) {
                         image={image}
                         imageIndex={imageIndex}
                         enabledModels={enabledModels}
-                        setModalImage={setModalImage}
+                        selectImage={selectImage}
+                        rowIndex={rowIndex}
                     />
                 ))}
             </div>
@@ -78,14 +138,19 @@ function ResultRow({ row, enabledModels, setModalImage }) {
     );
 }
 
-function Prompt({ prompt }) {
-    return <p className="text-lg font-semibold mb-2">{prompt}</p>;
+function Prompt({ prompt, seed }) {
+    return (
+        <div>
+            <p className="text-lg font-semibold mb-0">{prompt}</p>
+            <p className="text-sm text-gray-600 font-semibold mb-2">Seed: {seed}</p>
+        </div>
+    );
 }
 
-function ImageCard({ image, imageIndex, enabledModels, setModalImage }) {
+function ImageCard({ image, imageIndex, enabledModels, selectImage, rowIndex }) {
     return (
-        <div className="bg-white p-4 rounded-lg shadow">
-            <Image url={image.url} index={imageIndex} setModalImage={setModalImage} />
+        <div className="bg-white p-4 rounded-lg shadow-sm">
+            <Image url={image.url} index={imageIndex} onClick={() => selectImage(image.url, rowIndex, imageIndex)} />
             <Labels labels={image.labels} genPredictionId={image.gen_prediction_id} />
             <Scores
                 scores={image.scores}
@@ -96,12 +161,12 @@ function ImageCard({ image, imageIndex, enabledModels, setModalImage }) {
     );
 }
 
-function Image({ url, index, setModalImage }) {
+function Image({ url, index, onClick }) {
     if (!url) return null;
     return (
         <div
             className="aspect-square mb-2 cursor-pointer overflow-hidden"
-            onClick={() => setModalImage(url)}
+            onClick={onClick}
         >
             <img
                 src={url}
@@ -112,16 +177,28 @@ function Image({ url, index, setModalImage }) {
     );
 }
 
-function ImageModal({ image, onClose }) {
+function ImageModal({ image, onClose, onNavigate }) {
     return (
         <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50" onClick={onClose}>
-            <div className="max-w-4xl max-h-full p-4">
+            <div className="max-w-4xl max-h-full p-4 relative">
                 <img src={image} alt="Full size" className="max-w-full max-h-full object-contain" />
                 <button
                     className="absolute top-4 right-4 text-white text-2xl font-bold"
                     onClick={onClose}
                 >
                     ×
+                </button>
+                <button
+                    className="absolute left-4 top-1/2 transform -translate-y-1/2 text-white text-4xl font-bold"
+                    onClick={(e) => { e.stopPropagation(); onNavigate(-1); }}
+                >
+                    &#8592;
+                </button>
+                <button
+                    className="absolute right-4 top-1/2 transform -translate-y-1/2 text-white text-4xl font-bold"
+                    onClick={(e) => { e.stopPropagation(); onNavigate(1); }}
+                >
+                    &#8594;
                 </button>
             </div>
         </div>
@@ -135,7 +212,7 @@ function Labels({ labels, genPredictionId }) {
             {labels && labels.predict_time && <PredictTimeLabel time={labels.predict_time} predictionId={genPredictionId} />}
             {labels && !labels.predict_time && genPredictionId && <PredictionLoading predictionId={genPredictionId} />}
             {Object.entries(labels || {})
-                .filter(([key]) => key !== 'model' && key !== 'predict_time')
+                .filter(([key]) => key !== 'model' && key !== 'predict_time' && key)
                 .map(([key, value]) => <OtherLabel key={key} keyName={key} value={value} />)}
         </div>
     );

@@ -1,7 +1,7 @@
 function ReplicateModelForm() {
     const [apiKey, setApiKey] = React.useState('');
     const [title, setTitle] = React.useState('');
-    const [promptDataset, setPromptDataset] = React.useState('parti-prompts');
+    const [promptDataset, setPromptDataset] = React.useState('parti-prompts-tiny');
     const [customPrompts, setCustomPrompts] = React.useState('');
     const [modelGroups, setModelGroups] = React.useState([{
         model: '',
@@ -21,7 +21,7 @@ function ReplicateModelForm() {
         };
 
         try {
-            const response = await fetch('/generate-and-evaluate', {
+            const response = await fetch('/api/generate-and-evaluate', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -48,31 +48,47 @@ function ReplicateModelForm() {
                 model: group.model,
                 prompt_input: group.promptInput,
                 seed_input: group.seedInput,
-                inputs: Object.fromEntries(group.inputs.map(input => [input.name, input.value]))
+                inputs: duckTypeInputs(Object.fromEntries(group.inputs.map(input => [input.name, input.value])))
             }))
         }));
     };
 
+    const duckTypeInputs = (inputs) => {
+        const duckTypedInputs = {};
+        for (const [key, value] of Object.entries(inputs)) {
+            if (value.toLowerCase() === 'true' || value.toLowerCase() === 'false') {
+                duckTypedInputs[key] = value.toLowerCase() === 'true';
+            } else if (!isNaN(value) && value.trim() !== '') {
+                duckTypedInputs[key] = Number(value);
+            } else {
+                duckTypedInputs[key] = value;
+            }
+        }
+        return duckTypedInputs;
+    };
+
     const getPrompts = () => {
         switch (promptDataset) {
-            case 'parti-prompts':
-                return ['Prompt 1', 'Prompt 2', 'Prompt 3']; // Replace with actual prompts
-            case 'parti-prompts-tiny':
-                return ['Tiny Prompt 1', 'Tiny Prompt 2']; // Replace with actual prompts
-            case 'custom':
-                return customPrompts.split('\n').filter(prompt => prompt.trim() !== '');
-            default:
-                return [];
+        case 'parti-prompts':
+            return window.PARTI_PROMPTS;
+        case 'parti-prompts-tiny':
+            return window.PARTI_PROMPTS_TINY;
+        case 'custom':
+            return customPrompts.split('\n').filter(prompt => prompt.trim() !== '');
+        default:
+            return [];
         }
     };
 
     const handleAddModelGroup = () => {
-        setModelGroups([...modelGroups, {
-            model: '',
-            promptInput: 'prompt',
-            seedInput: 'seed',
-            inputs: [{ name: '', value: '' }]
-        }]);
+        const lastGroup = modelGroups[modelGroups.length - 1];
+        const newGroup = {
+            model: lastGroup.model,
+            promptInput: lastGroup.promptInput,
+            seedInput: lastGroup.seedInput,
+            inputs: lastGroup.inputs.map(input => ({ ...input }))
+        };
+        setModelGroups([...modelGroups, newGroup]);
     };
 
     const handleRemoveModelGroup = (index) => {
@@ -112,8 +128,7 @@ function ReplicateModelForm() {
     };
 
     return (
-        <div className="container mx-auto mt-10 p-6">
-            <h1 className="text-3xl font-bold mb-6">Replicate Model Evaluation</h1>
+        <div className="container mx-auto mt-10 px-0 max-w-3xl">
             <form onSubmit={handleSubmit} className="space-y-6">
                 <InputField
                     label="Replicate API Key"
@@ -161,36 +176,6 @@ function ReplicateModelForm() {
     );
 }
 
-function InputField({ label, type, value, onChange, required }) {
-    return (
-        <div>
-            <label className="block text-sm font-medium text-gray-700">{label}</label>
-            <input
-                type={type}
-                value={value}
-                onChange={(e) => onChange(e.target.value)}
-                className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
-                required={required}
-            />
-        </div>
-    );
-}
-
-function TextArea({ label, value, onChange, rows, required }) {
-    return (
-        <div>
-            <label className="block text-sm font-medium text-gray-700">{label}</label>
-            <textarea
-                value={value}
-                onChange={(e) => onChange(e.target.value)}
-                className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
-                rows={rows}
-                required={required}
-            />
-        </div>
-    );
-}
-
 function PromptDatasetSelect({ value, onChange }) {
     return (
         <div>
@@ -198,7 +183,7 @@ function PromptDatasetSelect({ value, onChange }) {
             <select
                 value={value}
                 onChange={(e) => onChange(e.target.value)}
-                className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
+                className="mt-0 block w-full border border-gray-300 rounded-md shadow-sm p-2"
             >
                 <option value="parti-prompts">Parti Prompts (1631 prompts)</option>
                 <option value="parti-prompts-tiny">Parti Prompts Tiny (10 prompts)</option>
@@ -211,7 +196,7 @@ function PromptDatasetSelect({ value, onChange }) {
 function ModelGroups({ modelGroups, onAddGroup, onRemoveGroup, onUpdateGroup, onAddInput, onRemoveInput, onUpdateInput }) {
     return (
         <div>
-            <h2 className="text-xl font-semibold mb-2">Model Groups</h2>
+            <h2 className="text-xl font-semibold mb-2">Models</h2>
             {modelGroups.map((group, groupIndex) => (
                 <div key={groupIndex} className="border border-gray-300 rounded-md p-4 mb-4">
                     <InputField
@@ -236,9 +221,9 @@ function ModelGroups({ modelGroups, onAddGroup, onRemoveGroup, onUpdateGroup, on
                         required
                     />
                     <div>
-                        <h3 className="text-lg font-medium mb-2">Input Values</h3>
+                        <label className="block text-sm font-medium text-gray-700">Model inputs</label>
                         {group.inputs.map((input, inputIndex) => (
-                            <div key={inputIndex} className="flex space-x-2 mb-2">
+                            <div key={inputIndex} className="flex space-x-2 mb-3">
                                 <input
                                     type="text"
                                     value={input.name}
@@ -289,39 +274,6 @@ function ModelGroups({ modelGroups, onAddGroup, onRemoveGroup, onUpdateGroup, on
                 + Add Model Group
             </button>
         </div>
-    );
-}
-
-function EvaluationModels({ enabledModels, onModelChange }) {
-    const allModels = ['ImageReward', 'Aesthetic', 'CLIP', 'BLIP', 'PickScore', 'DreamSim'];
-
-    return (
-        <div>
-            <label className="block text-sm font-medium text-gray-700">Evaluation Models</label>
-            {allModels.map((model) => (
-                <div key={model} className="flex items-center">
-                    <input
-                        type="checkbox"
-                        id={model}
-                        checked={enabledModels.includes(model)}
-                        onChange={() => onModelChange(model)}
-                        className="mr-2"
-                    />
-                    <label htmlFor={model}>{model}</label>
-                </div>
-            ))}
-        </div>
-    );
-}
-
-function SubmitButton() {
-    return (
-        <button
-            type="submit"
-            className="bg-green-500 text-white px-4 py-2 rounded-md"
-        >
-            Submit
-        </button>
     );
 }
 

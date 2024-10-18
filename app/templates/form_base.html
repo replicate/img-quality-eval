@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mx-auto max-w-3xl p-0">
+  <div class="flex mb-4">
+    <a href="/" class="mr-2 px-4 py-2 rounded-md {% block replicate_nav_class %}bg-gray-200{% endblock %}">
+      Generate and evaluate
+    </a>
+    <a href="/data-form/" class="mr-2 px-4 py-2 rounded-md {% block data_form_nav_class %}bg-gray-200{% endblock %}">
+      Evaluate existing images
+    </a>
+    <a href="/api-docs/" class="px-4 py-2 rounded-md {% block api_docs_nav_class %}bg-gray-200{% endblock %}">
+      API
+    </a>
+  </div>
+</div>
+<div id="root"></div>
+{% endblock %}
+
+{% block scripts %}
+<script type="text/babel" src="/static/js/shared.js"></script>
+{% block content_script %}{% endblock %}
+{% endblock %}

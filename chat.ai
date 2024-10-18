@@ -53,6 +53,15 @@ app/data.py:
 img_quality_eval/celery.py:
 <ai-context>/Users/andreas/r8/img-quality-eval/img_quality_eval/celery.py</ai-context>
 
+app/templates/form_base.html:
+<ai-context>/Users/andreas/r8/img-quality-eval/app/templates/form_base.html</ai-context>
+
+app/templates/base.html:
+<ai-context>/Users/andreas/r8/img-quality-eval/app/templates/base.html</ai-context>
+
+app/templates/api_docs.html:
+<ai-context>/Users/andreas/r8/img-quality-eval/app/templates/api_docs.html</ai-context>
+
 
 ---
 
@@ -62,43 +71,51 @@ This is the instructions for the app:
 
 ## USER:
 
-In api_results, order examples in rows based on id ascending
+In index.js generateRows, implement duck typing like the duck_type method from views for input values
 
 ## ASSISTANT:
 
-Certainly! I'll modify the `api_results` function in the `views.py` file to order the examples in rows based on their id in ascending order. Here's the updated function:
+Certainly! I'll modify the `generateRows` function in `index.js` to implement duck typing similar to the `duck_type` method from `views.py`. Here's the updated `generateRows` function:
 
-File: `img-quality-eval/app/views.py`
+```javascript
+// In img-quality-eval/app/static/js/index.js
 
-```python
-from django.shortcuts import get_object_or_404
-from django.http import JsonResponse
-from .models import Evaluation, Row, Example, ModelScore
+const generateRows = () => {
+    const prompts = getPrompts();
+    return prompts.map(prompt => ({
+        prompt,
+        examples: modelGroups.map(group => ({
+            model: group.model,
+            prompt_input: group.promptInput,
+            seed_input: group.seedInput,
+            inputs: duckTypeInputs(Object.fromEntries(group.inputs.map(input => [input.name, input.value])))
+        }))
+    }));
+};
 
-def api_results(request, eval_id):
-    evaluation = get_object_or_404(Evaluation, eval_id=eval_id)
-    rows = Row.objects.filter(evaluation=evaluation).prefetch_related("examples")
-
-    results = {
-        "data": [],
-        "enabled_models": evaluation.enabled_models,
-        "completed": True,
+const duckTypeInputs = (inputs) => {
+    const duckTypedInputs = {};
+    for (const [key, value] of Object.entries(inputs)) {
+        if (value.toLowerCase() === 'true' || value.toLowerCase() === 'false') {
+            duckTypedInputs[key] = value.toLowerCase() === 'true';
+        } else if (!isNaN(value) && value.trim() !== '') {
+            duckTypedInputs[key] = Number(value);
+        } else {
+            duckTypedInputs[key] = value;
+        }
     }
+    return duckTypedInputs;
+};
+```
 
-    for row in rows:
-        row_data = {"prompt": row.prompt, "images": []}
-        # Order examples by id ascending
-        for example in row.examples.all().order_by('id'):
-            image_data = {
-                "url": example.image_url,
-                "labels": example.labels,
-                "scores": {},
-                "gen_prediction_id": example.gen_prediction_id,
-            }
+This modification adds a new `duckTypeInputs` function that performs duck typing on the input values. It converts:
 
-            for model in evaluation.enabled_models:
-                if model == "DreamSim" and example.id != row.examples.first().id:
-                    ref_image = row.examples.first().image_url
-                    score = ModelScore.objects.filter(
-                        evaluation=evaluation,
-                        image
+1. 'true' or 'false' (case-insensitive) to boolean values
+2. Numeric strings to numbers
+3. Leaves other values as strings
+
+The `generateRows` function now uses this `duckTypeInputs` function to convert the input values before sending them to the server.
+
+This change will ensure that the input values are properly typed when sent to the server, similar to how the `duck_type` function in `views.py` works.
+
+## USER:
