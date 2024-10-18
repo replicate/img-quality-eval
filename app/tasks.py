@@ -221,7 +221,7 @@ def dreamsim_create_prediction(client: replicate.Client, rows):
         input={"images": input_str, "separator": image_separator},
     )
 
-    print(f"Running dreamsim prediction https://replicate.com/p/{prediction.id}")
+    print(f"Running dreamsim prediction: https://replicate.com/p/{prediction.id}")
 
     return prediction
 
@@ -252,7 +252,7 @@ def flash_eval_create_prediction(client, rows, models):
         version=flash_eval_version.id, input=input_data
     )
 
-    print(f"Running flash-eval prediction https://replicate.com/p/{prediction.id}")
+    print(f"Running flash-eval prediction: https://replicate.com/p/{prediction.id}")
 
     return prediction
 
