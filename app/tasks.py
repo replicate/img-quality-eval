@@ -23,11 +23,6 @@ s3 = boto3.client(
 )
 
 
-
-print(f"access_key: {settings.AWS_ACCESS_KEY_ID}")
-print(f"secret: {settings.AWS_SECRET_ACCESS_KEY}")
-
-
 @shared_task
 def evaluate_chunk(api_key, eval_id, row_ids):
     evaluation = Evaluation.objects.get(eval_id=eval_id)
