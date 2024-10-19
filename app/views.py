@@ -146,6 +146,9 @@ def api_results(request, eval_id):
     for row in rows:
         row_data = {"prompt": row.prompt, "seed": row.seed, "images": []}
         for index, example in enumerate(row.examples.all().order_by("id")):
+            if not example.image_url:
+                results["completed"] = False
+
             image_data = {
                 "url": example.image_url,
                 "labels": example.labels,
