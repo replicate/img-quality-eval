@@ -1,4 +1,5 @@
 function ResultsPage() {
+    const [title, setTitle] = React.useState(null);
     const [results, setResults] = React.useState(null);
     const [enabledModels, setEnabledModels] = React.useState([]);
     const [completed, setCompleted] = React.useState(false);
@@ -68,7 +69,8 @@ function ResultsPage() {
             const response = await fetch(`/api/results/${evalId}/`);
             if (response.ok) {
                 const data = await response.json();
-                setResults(data.data);
+                setTitle(data.title);
+                setResults(data.rows);
                 setEnabledModels(data.enabled_models || []);
                 setCompleted(data.completed);
             } else {
@@ -93,7 +95,7 @@ function ResultsPage() {
 
     return (
         <div className="container mx-auto mt-0 p-0">
-            <h1 className="text-3xl font-bold mb-6">Evaluation results</h1>
+            <h1 className="text-3xl font-bold mb-6">{title}</h1>
             {results.map((row, rowIndex) => (
                 <ResultRow
                     key={rowIndex}

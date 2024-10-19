@@ -137,9 +137,10 @@ def api_results(request, eval_id):
     rows = Row.objects.filter(evaluation=evaluation).prefetch_related("examples")
 
     results = {
-        "data": [],
+        "rows": [],
         "enabled_models": evaluation.enabled_models,
         "completed": True,
+        "title": evaluation.title,
     }
 
     for row in rows:
@@ -179,7 +180,7 @@ def api_results(request, eval_id):
 
             row_data["images"].append(image_data)
 
-        results["data"].append(row_data)
+        results["rows"].append(row_data)
 
     return JsonResponse(results)
 
