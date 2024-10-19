@@ -21,6 +21,7 @@ class Example(models.Model):
     row = models.ForeignKey(Row, on_delete=models.CASCADE, related_name="examples")
     image_url = models.URLField(max_length=1000, blank=True, null=True)
     labels = models.JSONField(default=dict)
+    gen_model = models.CharField(max_length=200, blank=True, null=True)
     gen_prediction_id = models.CharField(max_length=100, blank=True, null=True)
     gen_prediction_failed = models.BooleanField(default=False)
 

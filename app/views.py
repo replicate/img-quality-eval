@@ -102,9 +102,8 @@ def generate_and_evaluate(request):
             row = Row.objects.create(evaluation=evaluation, prompt=prompt, seed=seed)
 
             for example_data in row_data.examples:
-                labels = {"model": example_data.model}
-                labels |= example_data.inputs
-                example = Example.objects.create(row=row, labels=labels)
+                labels = {k: v for k, v in example_data.inputs.items()}  # clone
+                example = Example.objects.create(row=row, labels=labels, gen_model=example_data.model)
 
                 inputs = example_data.inputs
                 inputs[example_data.prompt_input] = row_data.prompt
@@ -151,6 +150,7 @@ def api_results(request, eval_id):
                 "labels": example.labels,
                 "scores": {},
                 "gen_prediction_id": example.gen_prediction_id,
+                "gen_model": example.gen_model,
             }
 
             for model in evaluation.enabled_models:

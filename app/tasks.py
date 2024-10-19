@@ -236,6 +236,7 @@ def flash_eval_create_prediction(client, rows, models):
     prompts_and_images = []
     for row in rows:
         prompt = row.prompt or ""
+        prompt = prompt.strip().replace("\n", " ")
         images = [example.image_url for example in row.examples.all()]
         prompts_and_images.append(
             f"{prompt}{prompt_images_separator}{image_separator.join(images)}"

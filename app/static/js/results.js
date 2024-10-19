@@ -151,7 +151,7 @@ function ImageCard({ image, imageIndex, enabledModels, selectImage, rowIndex }) 
     return (
         <div className="bg-white p-4 rounded-lg shadow-sm">
             <Image url={image.url} index={imageIndex} onClick={() => selectImage(image.url, rowIndex, imageIndex)} />
-            <Labels labels={image.labels} genPredictionId={image.gen_prediction_id} />
+            <Labels labels={image.labels} genModel={image.gen_model} genPredictionId={image.gen_prediction_id} />
             <Scores
                 scores={image.scores}
                 enabledModels={enabledModels}
@@ -205,10 +205,10 @@ function ImageModal({ image, onClose, onNavigate }) {
     );
 }
 
-function Labels({ labels, genPredictionId }) {
+function Labels({ labels, genModel, genPredictionId }) {
     return (
         <div className="mb-2">
-            {labels && labels.model && <ModelLabel model={labels.model} />}
+            {genModel && <ModelLabel model={genModel} />}
             {labels && labels.predict_time && <PredictTimeLabel time={labels.predict_time} predictionId={genPredictionId} />}
             {labels && !labels.predict_time && genPredictionId && <PredictionLoading predictionId={genPredictionId} />}
             {Object.entries(labels || {})
