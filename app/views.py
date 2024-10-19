@@ -134,7 +134,7 @@ def results(request, eval_id):
 
 def api_results(request, eval_id):
     evaluation = get_object_or_404(Evaluation, eval_id=eval_id)
-    rows = Row.objects.filter(evaluation=evaluation).prefetch_related("examples")
+    rows = Row.objects.filter(evaluation=evaluation).order_by("id").prefetch_related("examples")
 
     results = {
         "rows": [],
