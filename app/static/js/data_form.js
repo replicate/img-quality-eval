@@ -42,9 +42,11 @@ function DataForm() {
 
     return (
         <div className="container mx-auto mt-10 px-0 max-w-3xl">
+            <p className="mb-5">Upload a list of existing image URLs and evaluate their quality with <a href="https://github.com/thu-nics/FlashEval">FlashEval</a> and <a href="https://github.com/carpedm20/dreamsim">DreamSim</a>. </p>
             <form onSubmit={handleSubmit} className="space-y-6">
                 <InputField
                     label="Replicate API Key"
+                    help="Your Replicate API token. This is required to use the evaluation models."
                     type="password"
                     value={apiKey}
                     onChange={setApiKey}
@@ -52,6 +54,7 @@ function DataForm() {
                 />
                 <InputField
                     label="Title"
+                    help="A title for this evaluation. This will be displayed on the results page."
                     type="text"
                     value={title}
                     onChange={setTitle}
@@ -65,6 +68,7 @@ function DataForm() {
                         className="mt-0 block w-full"
                         required
                     />
+                    <Help text='Upload a JSONL file containing the image data to evaluate. Each line should be a JSON object with a "prompt" (optional) and an "images" array of objects with "url" and optional "labels". Example row: {"prompt": "A beautiful sunset", "images": [{"url": "https://example.com/image1.jpg", "labels": {"model": "stable-diffusion"}}, {"url": "https://example.com/image2.jpg", "labels": {"model": "dalle-2"}}]}' />
                 </div>
                 <EvaluationModels
                     enabledModels={models}

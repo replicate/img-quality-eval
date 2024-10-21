@@ -129,34 +129,30 @@ function ReplicateModelForm() {
 
     return (
         <div className="container mx-auto mt-10 px-0 max-w-3xl">
+            <p className="mb-5">Generate images using Replicate text-to-image models and evaluate their quality with <a href="https://github.com/thu-nics/FlashEval">FlashEval</a> and <a href="https://github.com/carpedm20/dreamsim">DreamSim</a>. </p>
             <form onSubmit={handleSubmit} className="space-y-6">
                 <InputField
-                    label="Replicate API Key"
+                    label="Replicate API key"
+                    help="Your Replicate API token."
                     type="password"
                     value={apiKey}
                     onChange={setApiKey}
                     required
                 />
                 <InputField
-                    label="Title"
+                    label="Evaluation title"
+                    help="This will be displayed on the results page."
                     type="text"
                     value={title}
                     onChange={setTitle}
                     required
                 />
                 <PromptDatasetSelect
-                    value={promptDataset}
-                    onChange={setPromptDataset}
+                    promptDataset={promptDataset}
+                    setPromptDataset={setPromptDataset}
+                    customPrompts={customPrompts}
+                    setCustomPrompts={setCustomPrompts}
                 />
-                {promptDataset === 'custom' && (
-                    <TextArea
-                        label="Custom Prompts"
-                        value={customPrompts}
-                        onChange={setCustomPrompts}
-                        rows={5}
-                        required
-                    />
-                )}
                 <ModelGroups
                     modelGroups={modelGroups}
                     onAddGroup={handleAddModelGroup}
@@ -176,19 +172,32 @@ function ReplicateModelForm() {
     );
 }
 
-function PromptDatasetSelect({ value, onChange }) {
+function PromptDatasetSelect({ promptDataset, setPromptDataset, customPrompts, setCustomPrompts }) {
     return (
         <div>
-            <label className="block text-sm font-medium text-gray-700">Prompt Dataset</label>
+            <label className="block text-sm font-medium text-gray-700">Prompt dataset</label>
             <select
-                value={value}
-                onChange={(e) => onChange(e.target.value)}
-                className="mt-0 block w-full border border-gray-300 rounded-md shadow-sm p-2"
+                value={promptDataset}
+                onChange={(e) => setPromptDataset(e.target.value)}
+                className="block w-full border border-gray-300 rounded-md shadow-sm p-2"
             >
-                <option value="parti-prompts">Parti Prompts (1631 prompts)</option>
-                <option value="parti-prompts-tiny">Parti Prompts Tiny (10 prompts)</option>
+                <option value="parti-prompts">parti-prompts (1631 prompts)</option>
+                <option value="parti-prompts-tiny">parti-prompts-tiny (10 prompts)</option>
                 <option value="custom">Custom</option>
             </select>
+            {promptDataset === 'custom' ? (
+                <TextArea
+                    label="Custom prompts"
+                    value={customPrompts}
+                    onChange={setCustomPrompts}
+                    rows={5}
+                    required
+                />
+            ) : (
+                <p className="mb-1 text-gray-500 text-sm mt-1">
+                    List or prompts to run on all models. <a href="https://huggingface.co/datasets/nateraw/parti-prompts">parti-prompts</a> is a dataset of 1631 prompts of various complexity. parti-prompts-tiny is a 10 prompt subset of parti-prompts. You can also enter custom prompts by selecting "Custom".
+                </p>
+            )}
         </div>
     );
 }
@@ -197,24 +206,28 @@ function ModelGroups({ modelGroups, onAddGroup, onRemoveGroup, onUpdateGroup, on
     return (
         <div>
             <h2 className="text-xl font-semibold mb-2">Models</h2>
+            <p className="mb-1 text-gray-500 text-sm mt-1">One or more models to generate images with. Every prompt in the prompt dataset above will be run on every model in the list below. The same model can be repeated multiple times, when you may want to evaluate different input settings.</p>
             {modelGroups.map((group, groupIndex) => (
                 <div key={groupIndex} className="border border-gray-300 rounded-md p-4 mb-4">
                     <InputField
                         label="Model"
+                        help="Replicate model in the format <owner>/<model>[:<version>], e.g. black-forest-labs/flux-dev."
                         type="text"
                         value={group.model}
                         onChange={(value) => onUpdateGroup(groupIndex, 'model', value)}
                         required
                     />
                     <InputField
-                        label="Prompt Input Name"
+                        label="Prompt input name"
+                        help="The name of the prompt input to the model."
                         type="text"
                         value={group.promptInput}
                         onChange={(value) => onUpdateGroup(groupIndex, 'promptInput', value)}
                         required
                     />
                     <InputField
-                        label="Seed Input Name"
+                        label="Seed input name"
+                        help="The name of the seed input to the model."
                         type="text"
                         value={group.seedInput}
                         onChange={(value) => onUpdateGroup(groupIndex, 'seedInput', value)}
@@ -223,28 +236,33 @@ function ModelGroups({ modelGroups, onAddGroup, onRemoveGroup, onUpdateGroup, on
                     <div>
                         <label className="block text-sm font-medium text-gray-700">Model inputs</label>
                         {group.inputs.map((input, inputIndex) => (
-                            <div key={inputIndex} className="flex space-x-2 mb-3">
-                                <input
-                                    type="text"
-                                    value={input.name}
-                                    onChange={(e) => onUpdateInput(groupIndex, inputIndex, 'name', e.target.value)}
-                                    className="flex-1 border border-gray-300 rounded-md shadow-sm p-2"
-                                    placeholder="Name"
-                                />
-                                <input
-                                    type="text"
-                                    value={input.value}
-                                    onChange={(e) => onUpdateInput(groupIndex, inputIndex, 'value', e.target.value)}
-                                    className="flex-1 border border-gray-300 rounded-md shadow-sm p-2"
-                                    placeholder="Value"
-                                />
-                                <button
-                                    type="button"
-                                    onClick={() => onRemoveInput(groupIndex, inputIndex)}
-                                    className="bg-red-500 text-white px-2 py-1 rounded-md"
-                                >
-                                    -
-                                </button>
+                            <div className="mb-3">
+                                <div key={inputIndex} className="flex space-x-2">
+                                    <input
+                                        type="text"
+                                        value={input.name}
+                                        onChange={(e) => onUpdateInput(groupIndex, inputIndex, 'name', e.target.value)}
+                                        className="flex-1 border border-gray-300 rounded-md shadow-sm p-2"
+                                        placeholder="Name"
+                                    />
+                                    <input
+                                        type="text"
+                                        value={input.value}
+                                        onChange={(e) => onUpdateInput(groupIndex, inputIndex, 'value', e.target.value)}
+                                        className="flex-1 border border-gray-300 rounded-md shadow-sm p-2"
+                                        placeholder="Value"
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => onRemoveInput(groupIndex, inputIndex)}
+                                        className="bg-red-500 text-white px-2 py-1 rounded-md"
+                                    >
+                                        -
+                                    </button>
+                                </div>
+                                {inputIndex == group.inputs.length - 1 && (
+                                    <Help text="Input names and values to this model. This is useful if you want to evaluate different model parameters." />
+                                )}
                             </div>
                         ))}
                         <button
@@ -252,7 +270,7 @@ function ModelGroups({ modelGroups, onAddGroup, onRemoveGroup, onUpdateGroup, on
                             onClick={() => onAddInput(groupIndex)}
                             className="bg-green-500 text-white px-2 py-1 rounded-md"
                         >
-                            + Add Input Value
+                            + Add input value
                         </button>
                     </div>
                     {groupIndex > 0 && (
@@ -261,7 +279,7 @@ function ModelGroups({ modelGroups, onAddGroup, onRemoveGroup, onUpdateGroup, on
                             onClick={() => onRemoveGroup(groupIndex)}
                             className="mt-2 bg-red-500 text-white px-3 py-1 rounded-md"
                         >
-                            Remove Model Group
+                            Remove model
                         </button>
                     )}
                 </div>
@@ -271,7 +289,7 @@ function ModelGroups({ modelGroups, onAddGroup, onRemoveGroup, onUpdateGroup, on
                 onClick={onAddGroup}
                 className="bg-blue-500 text-white px-3 py-1 rounded-md"
             >
-                + Add Model Group
+                + Add model
             </button>
         </div>
     );
