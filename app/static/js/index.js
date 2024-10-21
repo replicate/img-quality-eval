@@ -130,7 +130,7 @@ function ReplicateModelForm() {
     return (
         <div className="container mx-auto mt-10 px-0 max-w-3xl">
             <p className="mb-1">Generate images using Replicate text-to-image models and evaluate their quality with <a target="_blank" href="https://replicate.com/andreasjansson/flash-eval">FlashEval</a> and <a target="_blank" href="https://replicate.com/andreasjansson/dreamsim">DreamSim</a>. </p>
-            <p className="mb-5">For example, <a target="_blank" href="https://img-quality-eval.onrender.com/results/ddcb5037-9214-4768-b529-edcd77f07b29/">this evaluation</a> compares <a target="_blank" href="https://replicate.com/black-forest-labs/flux-1.1-pro">black-forest-labs/flux-1.1-pro</a>, <a target="_blank" href="https://replicate.com/black-forest-labs/flux-dev">black-forest-labs/flux-dev</a> and <a target="_blank" href="https://replicate.com/black-forest-labs/flux-schnell">black-forest-labs/flux-schnell</a> using parti-prompts-tiny.</p>
+            <p className="mb-5">For example, <a target="_blank" href="https://img-quality-eval.onrender.com/results/9b76988b-9352-48c1-a3e8-d4974d6172d5/">this evaluation</a> compares <a target="_blank" href="https://replicate.com/black-forest-labs/flux-1.1-pro">black-forest-labs/flux-1.1-pro</a>, <a target="_blank" href="https://replicate.com/black-forest-labs/flux-dev">black-forest-labs/flux-dev</a> and <a target="_blank" href="https://replicate.com/black-forest-labs/flux-schnell">black-forest-labs/flux-schnell</a> using parti-prompts-tiny.</p>
             <form onSubmit={handleSubmit} className="space-y-6">
                 <InputField
                     label="Replicate API key"
