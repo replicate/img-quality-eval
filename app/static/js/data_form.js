@@ -42,7 +42,8 @@ function DataForm() {
 
     return (
         <div className="container mx-auto mt-10 px-0 max-w-3xl">
-            <p className="mb-5">Upload a list of existing image URLs and evaluate their quality with <a href="https://github.com/thu-nics/FlashEval">FlashEval</a> and <a href="https://github.com/carpedm20/dreamsim">DreamSim</a>. </p>
+            <p className="mb-1">Upload a list of existing image URLs and evaluate their quality with <a target="_blank" href="https://github.com/thu-nics/FlashEval">FlashEval</a> and <a target="_blank" href="https://github.com/carpedm20/dreamsim">DreamSim</a>. </p>
+            <p className="mb-5">For example, <a target="_blank" href="https://img-quality-eval.onrender.com/results/20cabfbe-64a5-45cb-8213-103caa6346c6/">this evaluation</a> was created using <a target="_blank" href="https://gist.githubusercontent.com/andreasjansson/4ca66c90c17e5b46293555ae3ea06ae0/raw/94724e11a75418cdf5b12e208b3f0b650cca54a3/img-quality-eval-test-data.json">this jsonl data</a>.</p>
             <form onSubmit={handleSubmit} className="space-y-6">
                 <InputField
                     label="Replicate API Key"
