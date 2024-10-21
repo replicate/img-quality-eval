@@ -129,7 +129,7 @@ function ReplicateModelForm() {
 
     return (
         <div className="container mx-auto mt-10 px-0 max-w-3xl">
-            <p className="mb-1">Generate images using Replicate text-to-image models and evaluate their quality with <a href="https://github.com/thu-nics/FlashEval">FlashEval</a> and <a href="https://github.com/carpedm20/dreamsim">DreamSim</a>. </p>
+            <p className="mb-1">Generate images using Replicate text-to-image models and evaluate their quality with <a href="https://replicate.com/andreasjansson/flash-eval">FlashEval</a> and <a href="https://replicate.com/andreasjansson/dreamsim">DreamSim</a>. </p>
             <p className="mb-5">For example, <a target="_blank" href="https://img-quality-eval.onrender.com/results/124bd52a-c9cf-4300-8838-c6c798451310/">this evaluation</a> compares <a href="https://replicate.com/black-forest-labs/flux-1.1-pro">black-forest-labs/flux-1.1-pro</a>, <a href="https://replicate.com/black-forest-labs/flux-dev">black-forest-labs/flux-dev</a> and <a href="https://replicate.com/black-forest-labs/flux-schnell">black-forest-labs/flux-schnell</a> using parti-prompts-tiny.</p>
             <form onSubmit={handleSubmit} className="space-y-6">
                 <InputField
