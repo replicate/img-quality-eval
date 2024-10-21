@@ -144,7 +144,7 @@ function Prompt({ prompt, seed }) {
     return (
         <div>
             <p className="text-lg font-semibold mb-0">{prompt}</p>
-            <p className="text-sm text-gray-600 font-semibold mb-2">Seed: {seed}</p>
+            {seed !== null && (<p className="text-sm text-gray-600 font-semibold mb-2">Seed: {seed}</p>)}
         </div>
     );
 }

@@ -10,10 +10,10 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.urls import reverse
+from django.db.models import Prefetch
 import pydantic
 from .models import Evaluation, Row, Example, ModelScore
 from .tasks import evaluate_chunk, generate_image
-from .data import load_input_data
 from .encryption import encrypt_key
 from .schemas import GenerateAndEvaluateRequest, EvaluateImagesRequest
 
@@ -134,7 +134,22 @@ def results(request, eval_id):
 
 def api_results(request, eval_id):
     evaluation = get_object_or_404(Evaluation, eval_id=eval_id)
-    rows = Row.objects.filter(evaluation=evaluation).order_by("id").prefetch_related("examples")
+
+    rows = Row.objects.filter(evaluation=evaluation).order_by("id").prefetch_related(
+        Prefetch(
+            'examples',
+            queryset=Example.objects.order_by('id'),
+            to_attr='ordered_examples'
+        )
+    )
+
+    # Fetch all ModelScores for this evaluation in one query
+    model_scores = ModelScore.objects.filter(evaluation=evaluation)
+
+    # Create a dictionary for fast lookup
+    score_lookup = {}
+    for score in model_scores:
+        score_lookup.setdefault(score.image_url, {})[score.model] = score
 
     results = {
         "rows": [],
@@ -145,8 +160,8 @@ def api_results(request, eval_id):
 
     for row in rows:
         row_data = {"prompt": row.prompt, "seed": row.seed, "images": []}
-        examples = row.examples.all().order_by("id")
-        for index, example in enumerate(examples):
+
+        for index, example in enumerate(row.ordered_examples):
             if not example.image_url:
                 results["completed"] = False
 
@@ -159,24 +174,16 @@ def api_results(request, eval_id):
             }
 
             for model in evaluation.enabled_models:
-                if model == "DreamSim" and index > 0:
-                    ref_image = examples[0].image_url
-                    score = ModelScore.objects.filter(
-                        evaluation=evaluation,
-                        image_url=example.image_url,
-                        model=model,
-                        ref_image=ref_image,
-                    ).first()
-                else:
-                    score = ModelScore.objects.filter(
-                        evaluation=evaluation,
-                        image_url=example.image_url,
-                        model=model,
-                        prompt=row.prompt,
-                    ).first()
-
+                score = score_lookup.get(example.image_url, {}).get(model)
                 if score:
-                    image_data["scores"][model] = score.score
+                    if model == "DreamSim" and index > 0:
+                        if score.ref_image == row.ordered_examples[0].image_url:
+                            image_data["scores"][model] = score.score
+                        else:
+                            image_data["scores"][model] = None
+                            results["completed"] = False
+                    else:
+                        image_data["scores"][model] = score.score
                 else:
                     image_data["scores"][model] = None
                     if model != "DreamSim" or index > 0:
