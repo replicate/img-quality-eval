@@ -206,7 +206,8 @@ def dreamsim_create_prediction(client: replicate.Client, rows):
 
     input_strings = []
     for row in rows:
-        images = [example.image_url for example in row.examples.all()]
+        examples = row.examples.all().order_by("id")
+        images = [example.image_url for example in examples]
         input_strings.append(image_separator.join(images))
 
     input_str = "\n".join(input_strings)
