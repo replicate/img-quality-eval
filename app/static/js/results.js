@@ -7,19 +7,6 @@ function ResultsPage() {
     const [currentRowIndex, setCurrentRowIndex] = React.useState(0);
     const [currentImageIndex, setCurrentImageIndex] = React.useState(0);
 
-    React.useEffect(() => {
-        fetchResults();
-        const intervalId = setInterval(() => {
-            if (completed) {
-                clearInterval(intervalId);
-            } else {
-                fetchResults();
-            }
-        }, 5000);  // Poll every 5 seconds
-
-        return () => clearInterval(intervalId);
-    }, [completed]);
-
     const handleKeyDown = (event) => {
         if (modalImage) {
             if (event.key === 'ArrowLeft') {
@@ -73,12 +60,20 @@ function ResultsPage() {
                 setResults(data.rows);
                 setEnabledModels(data.enabled_models || []);
                 setCompleted(data.completed);
+
+                if (!data.completed) {
+                    setTimeout(() => {
+                        fetchResults();
+                    }, 5000);  // Poll every 5 seconds
+                }
             } else {
                 console.error('Failed to fetch results');
             }
+
         } catch (error) {
             console.error('Error fetching results:', error);
         }
+
     };
 
     const selectImage = (imageUrl, rowIndex, imageIndex) => {
@@ -88,6 +83,10 @@ function ResultsPage() {
             setCurrentImageIndex(imageIndex);
         }
     };
+
+    React.useEffect(() => {
+        fetchResults();
+    }, []);
 
     if (!results) {
         return <LoadingMessage />;
