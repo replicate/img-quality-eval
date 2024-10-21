@@ -73,6 +73,8 @@ function ReplicateModelForm() {
             return window.PARTI_PROMPTS;
         case 'parti-prompts-tiny':
             return window.PARTI_PROMPTS_TINY;
+        case 'parti-prompts-small':
+            return window.PARTI_PROMPTS_SMALL;
         case 'custom':
             return customPrompts.split('\n').filter(prompt => prompt.trim() !== '');
         default:
@@ -184,6 +186,7 @@ function PromptDatasetSelect({ promptDataset, setPromptDataset, customPrompts, s
             >
                 <option value="parti-prompts">parti-prompts (1631 prompts)</option>
                 <option value="parti-prompts-tiny">parti-prompts-tiny (10 prompts)</option>
+                <option value="parti-prompts-small">parti-prompts-small (200 prompts)</option>
                 <option value="custom">Custom</option>
             </select>
             {promptDataset === 'custom' ? (
@@ -196,7 +199,7 @@ function PromptDatasetSelect({ promptDataset, setPromptDataset, customPrompts, s
                 />
             ) : (
                 <p className="mb-1 text-gray-500 text-sm mt-1">
-                    List or prompts to run on all models. <a href="https://huggingface.co/datasets/nateraw/parti-prompts">parti-prompts</a> is a dataset of 1631 prompts of various complexity. parti-prompts-tiny is a 10 prompt subset of parti-prompts. You can also enter custom prompts by selecting "Custom".
+                    List or prompts to run on all models. <a href="https://huggingface.co/datasets/nateraw/parti-prompts">parti-prompts</a> is a dataset of 1631 prompts of various complexity. parti-prompts-tiny is a 10 prompt subset of parti-prompts, and parti-prompts-small is a subset of 200 prompts. You can also enter custom prompts by selecting "Custom".
                 </p>
             )}
         </div>
