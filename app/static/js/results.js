@@ -6,6 +6,10 @@ function ResultsPage() {
     const [modalImage, setModalImage] = React.useState(null);
     const [currentRowIndex, setCurrentRowIndex] = React.useState(0);
     const [currentImageIndex, setCurrentImageIndex] = React.useState(0);
+    const [sortColumn, setSortColumn] = React.useState(1);
+    const [sortModel, setSortModel] = React.useState('');
+    const [sortOrder, setSortOrder] = React.useState('desc');
+    const [promptFilter, setPromptFilter] = React.useState('');
 
     const handleKeyDown = (event) => {
         if (modalImage) {
@@ -84,6 +88,22 @@ function ResultsPage() {
         }
     };
 
+    const sortResults = (results) => {
+        if (!sortModel) return results;
+        return [...results].sort((a, b) => {
+            const scoreA = a.images[sortColumn - 1].scores[sortModel];
+            const scoreB = b.images[sortColumn - 1].scores[sortModel];
+            return sortOrder === 'asc' ? scoreA - scoreB : scoreB - scoreA;
+        });
+    };
+
+    const filterResults = (results) => {
+        if (!results) return [];
+        return results.filter(row =>
+            !promptFilter || (row.prompt && row.prompt.toLowerCase().includes(promptFilter.toLowerCase()))
+        );
+    };
+
     React.useEffect(() => {
         fetchResults();
     }, []);
@@ -95,7 +115,25 @@ function ResultsPage() {
     return (
         <div className="container mx-auto mt-0 p-0">
             <h1 className="text-3xl font-bold mb-6">{title}</h1>
-            {results.map((row, rowIndex) => (
+            <div className="mb-4 flex items-center space-x-4 text-gray-500">
+                <Filtering
+                    promptFilter={promptFilter}
+                    setPromptFilter={setPromptFilter}
+                />
+                {enabledModels.length > 0 && (
+                    <Sorting
+                        sortColumn={sortColumn}
+                        sortModel={sortModel}
+                        sortOrder={sortOrder}
+                        numColumns={results[0].images.length}
+                        enabledModels={enabledModels}
+                        setSortColumn={setSortColumn}
+                        setSortModel={setSortModel}
+                        setSortOrder={setSortOrder}
+                    />
+                )}
+            </div>
+            {sortResults(filterResults(results)).map((row, rowIndex) => (
                 <ResultRow
                     key={rowIndex}
                     row={row}
@@ -297,6 +335,56 @@ function ScoreItem({ model, score }) {
             <span className="font-semibold">{model}:</span>{' '}
             {score !== null ? score.toFixed(4) : 'processing...'}
         </p>
+    );
+}
+
+function Sorting({ sortColumn, sortModel, sortOrder, numColumns, enabledModels, setSortColumn, setSortModel, setSortOrder }) {
+    return (
+        <div className="flex items-center space-x-2">
+            <p>Sort by</p>
+            <select
+                value={sortColumn}
+                onChange={(e) => setSortColumn(Number(e.target.value))}
+                className="border border-gray-500 rounded-md p-1"
+            >
+                {Array.from({ length: numColumns }, (_, index) => (
+                    <option key={index} value={index + 1}>Column {index + 1}</option>
+                ))}
+            </select>
+            <select
+                value={sortModel}
+                onChange={(e) => setSortModel(e.target.value)}
+                className="border border-gray-500 rounded-md p-1"
+            >
+                <option value="">Select model</option>
+                {enabledModels.filter((model) => !(model == "DreamSim" && sortColumn == 1)).map((model) => (
+                    <option key={model} value={model}>{model}</option>
+                ))}
+            </select>
+            <select
+                value={sortOrder}
+                onChange={(e) => setSortOrder(e.target.value)}
+                className="border border-gray-500 rounded-md p-1"
+            >
+                <option value="desc">Descending</option>
+                <option value="asc">Ascending</option>
+            </select>
+        </div>
+    );
+}
+
+function Filtering({ promptFilter, setPromptFilter }) {
+    return (
+        <div className="flex items-center space-x-2">
+            <p>Filter by prompt</p>
+            <input
+                type="text"
+                placeholder="Filter prompts..."
+                value={promptFilter}
+                onChange={(e) => setPromptFilter(e.target.value)}
+                className="p-1 border border-gray-500 rounded"
+            />
+        </div>
     );
 }
 
