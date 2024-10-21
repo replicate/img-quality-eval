@@ -145,7 +145,8 @@ def api_results(request, eval_id):
 
     for row in rows:
         row_data = {"prompt": row.prompt, "seed": row.seed, "images": []}
-        for index, example in enumerate(row.examples.all().order_by("id")):
+        examples = row.examples.all().order_by("id")
+        for index, example in enumerate(examples):
             if not example.image_url:
                 results["completed"] = False
 
@@ -159,7 +160,7 @@ def api_results(request, eval_id):
 
             for model in evaluation.enabled_models:
                 if model == "DreamSim" and index > 0:
-                    ref_image = row.examples.first().image_url
+                    ref_image = examples[0].image_url
                     score = ModelScore.objects.filter(
                         evaluation=evaluation,
                         image_url=example.image_url,
