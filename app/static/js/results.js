@@ -6,10 +6,8 @@ function ResultsPage() {
     const [modalImage, setModalImage] = React.useState(null);
     const [currentRowIndex, setCurrentRowIndex] = React.useState(0);
     const [currentImageIndex, setCurrentImageIndex] = React.useState(0);
-    const [sortColumn, setSortColumn] = React.useState(1);
-    const [sortModel, setSortModel] = React.useState('');
-    const [sortOrder, setSortOrder] = React.useState('desc');
     const [promptFilter, setPromptFilter] = React.useState('');
+    const [hideScores, setHideScores] = React.useState(false);
 
     const handleKeyDown = (event) => {
         if (modalImage) {
@@ -22,6 +20,38 @@ function ResultsPage() {
             }
         }
     };
+
+    React.useEffect(() => {
+        // Read values from URL when component mounts
+        const urlParams = new URLSearchParams(window.location.search);
+        const filterParam = urlParams.get('filter');
+        const hideScoresParam = urlParams.get('hideScores');
+
+        if (filterParam) setPromptFilter(filterParam);
+        if (hideScoresParam) setHideScores(hideScoresParam === 'true');
+
+        fetchResults();
+    }, []);
+
+    React.useEffect(() => {
+        // Update URL when controls change
+        const urlParams = new URLSearchParams(window.location.search);
+
+        if (promptFilter) {
+            urlParams.set('filter', promptFilter);
+        } else {
+            urlParams.delete('filter');
+        }
+
+        if (hideScores) {
+            urlParams.set('hideScores', 'true');
+        } else {
+            urlParams.delete('hideScores');
+        }
+
+        const newUrl = `${window.location.pathname}?${urlParams.toString()}`;
+        window.history.replaceState({}, '', newUrl);
+    }, [promptFilter, hideScores]);
 
     React.useEffect(() => {
         window.addEventListener('keydown', handleKeyDown);
@@ -88,15 +118,6 @@ function ResultsPage() {
         }
     };
 
-    const sortResults = (results) => {
-        if (!sortModel) return results;
-        return [...results].sort((a, b) => {
-            const scoreA = a.images[sortColumn - 1].scores[sortModel];
-            const scoreB = b.images[sortColumn - 1].scores[sortModel];
-            return sortOrder === 'asc' ? scoreA - scoreB : scoreB - scoreA;
-        });
-    };
-
     const filterResults = (results) => {
         if (!results) return [];
         return results.filter(row =>
@@ -116,30 +137,21 @@ function ResultsPage() {
         <div className="container mx-auto mt-0 p-0">
             <h1 className="text-3xl font-bold mb-6">{title}</h1>
             <div className="mb-4 flex items-center space-x-4 text-gray-500">
-                <Filtering
+                <Controls
                     promptFilter={promptFilter}
                     setPromptFilter={setPromptFilter}
+                    hideScores={hideScores}
+                    setHideScores={setHideScores}
                 />
-                {enabledModels.length > 0 && (
-                    <Sorting
-                        sortColumn={sortColumn}
-                        sortModel={sortModel}
-                        sortOrder={sortOrder}
-                        numColumns={results[0].images.length}
-                        enabledModels={enabledModels}
-                        setSortColumn={setSortColumn}
-                        setSortModel={setSortModel}
-                        setSortOrder={setSortOrder}
-                    />
-                )}
             </div>
-            {sortResults(filterResults(results)).map((row, rowIndex) => (
+            {filterResults(results).map((row, rowIndex) => (
                 <ResultRow
                     key={rowIndex}
                     row={row}
                     enabledModels={enabledModels}
                     selectImage={selectImage}
                     rowIndex={rowIndex}
+                    hideScores={hideScores}
                 />
             ))}
             {modalImage && (
@@ -157,7 +169,7 @@ function LoadingMessage() {
     return <div className="text-center mt-10">Loading...</div>;
 }
 
-function ResultRow({ row, enabledModels, selectImage, rowIndex }) {
+function ResultRow({ row, enabledModels, selectImage, rowIndex, hideScores }) {
     return (
         <div className="mb-8 p-4 border-gray-300 border rounded-lg">
             {row.prompt && <Prompt prompt={row.prompt} seed={row.seed} />}
@@ -170,6 +182,7 @@ function ResultRow({ row, enabledModels, selectImage, rowIndex }) {
                         enabledModels={enabledModels}
                         selectImage={selectImage}
                         rowIndex={rowIndex}
+                        hideScores={hideScores}
                     />
                 ))}
             </div>
@@ -186,16 +199,18 @@ function Prompt({ prompt, seed }) {
     );
 }
 
-function ImageCard({ image, imageIndex, enabledModels, selectImage, rowIndex }) {
+function ImageCard({ image, imageIndex, enabledModels, selectImage, rowIndex, hideScores }) {
     return (
         <div className="bg-white p-4 rounded-lg shadow-sm">
             <Image url={image.url} index={imageIndex} onClick={() => selectImage(image.url, rowIndex, imageIndex)} />
             <Labels labels={image.labels} genModel={image.gen_model} genPredictionId={image.gen_prediction_id} />
-            <Scores
-                scores={image.scores}
-                enabledModels={enabledModels}
-                imageIndex={imageIndex}
-            />
+            {!hideScores && (
+                <Scores
+                    scores={image.scores}
+                    enabledModels={enabledModels}
+                    imageIndex={imageIndex}
+                />
+            )}
         </div>
     );
 }
@@ -338,52 +353,28 @@ function ScoreItem({ model, score }) {
     );
 }
 
-function Sorting({ sortColumn, sortModel, sortOrder, numColumns, enabledModels, setSortColumn, setSortModel, setSortOrder }) {
+function Controls({ promptFilter, setPromptFilter, hideScores, setHideScores }) {
     return (
-        <div className="flex items-center space-x-2">
-            <p>Sort by</p>
-            <select
-                value={sortColumn}
-                onChange={(e) => setSortColumn(Number(e.target.value))}
-                className="border border-gray-500 rounded-md p-1"
-            >
-                {Array.from({ length: numColumns }, (_, index) => (
-                    <option key={index} value={index + 1}>Column {index + 1}</option>
-                ))}
-            </select>
-            <select
-                value={sortModel}
-                onChange={(e) => setSortModel(e.target.value)}
-                className="border border-gray-500 rounded-md p-1"
-            >
-                <option value="">Select model</option>
-                {enabledModels.filter((model) => !(model == "DreamSim" && sortColumn == 1)).map((model) => (
-                    <option key={model} value={model}>{model}</option>
-                ))}
-            </select>
-            <select
-                value={sortOrder}
-                onChange={(e) => setSortOrder(e.target.value)}
-                className="border border-gray-500 rounded-md p-1"
-            >
-                <option value="desc">Descending</option>
-                <option value="asc">Ascending</option>
-            </select>
-        </div>
-    );
-}
-
-function Filtering({ promptFilter, setPromptFilter }) {
-    return (
-        <div className="flex items-center space-x-2">
-            <p>Filter by prompt</p>
-            <input
-                type="text"
-                placeholder="Filter prompts..."
-                value={promptFilter}
-                onChange={(e) => setPromptFilter(e.target.value)}
-                className="p-1 border border-gray-500 rounded"
-            />
+        <div className="flex items-center space-x-4 mb-3">
+            <div className="flex items-center space-x-2">
+                <p>Filter by prompt</p>
+                <input
+                    type="text"
+                    value={promptFilter}
+                    onChange={(e) => setPromptFilter(e.target.value)}
+                    className="p-1 border border-gray-500 rounded"
+                />
+            </div>
+            <div className="flex items-center space-x-2">
+                <label htmlFor="hideScores" className="text-sm ml-5">Hide scores</label>
+                <input
+                    type="checkbox"
+                    id="hideScores"
+                    checked={hideScores}
+                    onChange={(e) => setHideScores(e.target.checked)}
+                    className="form-checkbox h-5 w-5 text-blue-600"
+                />
+            </div>
         </div>
     );
 }
