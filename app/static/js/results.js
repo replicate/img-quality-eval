@@ -2,12 +2,12 @@ function ResultsPage() {
     const [title, setTitle] = React.useState(null);
     const [results, setResults] = React.useState(null);
     const [enabledModels, setEnabledModels] = React.useState([]);
-    const [completed, setCompleted] = React.useState(false);
     const [modalImage, setModalImage] = React.useState(null);
     const [currentRowIndex, setCurrentRowIndex] = React.useState(0);
     const [currentImageIndex, setCurrentImageIndex] = React.useState(0);
     const [promptFilter, setPromptFilter] = React.useState('');
     const [hideScores, setHideScores] = React.useState(false);
+    const [numColumns, setNumColumns] = React.useState(0);
 
     const handleKeyDown = (event) => {
         if (modalImage) {
@@ -90,16 +90,7 @@ function ResultsPage() {
             const response = await fetch(`/api/results/${evalId}/`);
             if (response.ok) {
                 const data = await response.json();
-                setTitle(data.title);
-                setResults(data.rows);
-                setEnabledModels(data.enabled_models || []);
-                setCompleted(data.completed);
-
-                if (!data.completed) {
-                    setTimeout(() => {
-                        fetchResults();
-                    }, 5000);  // Poll every 5 seconds
-                }
+                handleResults(data);
             } else {
                 console.error('Failed to fetch results');
             }
@@ -107,7 +98,20 @@ function ResultsPage() {
         } catch (error) {
             console.error('Error fetching results:', error);
         }
+    };
 
+    const handleResults = (results) => {
+        setNumColumns(getNumColumns(results));
+
+        setTitle(results.title);
+        setResults(results.rows);
+        setEnabledModels(results.enabled_models || []);
+
+        if (!results.completed) {
+            setTimeout(() => {
+                fetchResults();
+            }, 5000);  // Poll every 5 seconds
+        }
     };
 
     const selectImage = (imageUrl, rowIndex, imageIndex) => {
@@ -165,6 +169,14 @@ function ResultsPage() {
     );
 }
 
+function getNumColumns(results) {
+    if (!results || !results.rows || results.rows.length === 0) {
+        return 0;
+    }
+
+    return Math.max(...results.rows.map(row => row.images.length));
+}
+
 function LoadingMessage() {
     return <div className="text-center mt-10">Loading...</div>;
 }
@@ -183,6 +195,7 @@ function ResultRow({ row, enabledModels, selectImage, rowIndex, hideScores }) {
                         selectImage={selectImage}
                         rowIndex={rowIndex}
                         hideScores={hideScores}
+                        rowImages={row.images}
                     />
                 ))}
             </div>
@@ -199,7 +212,7 @@ function Prompt({ prompt, seed }) {
     );
 }
 
-function ImageCard({ image, imageIndex, enabledModels, selectImage, rowIndex, hideScores }) {
+function ImageCard({ image, imageIndex, enabledModels, selectImage, rowIndex, hideScores, rowImages }) {
     return (
         <div className="bg-white p-4 rounded-lg shadow-sm">
             <Image url={image.url} index={imageIndex} onClick={() => selectImage(image.url, rowIndex, imageIndex)} />
@@ -209,6 +222,7 @@ function ImageCard({ image, imageIndex, enabledModels, selectImage, rowIndex, hi
                     scores={image.scores}
                     enabledModels={enabledModels}
                     imageIndex={imageIndex}
+                    rowImages={rowImages}
                 />
             )}
         </div>
@@ -328,7 +342,7 @@ function OtherLabel({ keyName, value }) {
     );
 }
 
-function Scores({ scores, enabledModels, imageIndex }) {
+function Scores({ scores, enabledModels, imageIndex, rowImages }) {
     return (
         <div>
             {enabledModels.map(model => (
@@ -337,6 +351,7 @@ function Scores({ scores, enabledModels, imageIndex }) {
                         key={model}
                         model={model}
                         score={scores[model]}
+                        rowImages={rowImages}
                     />
                 )
             ))}
@@ -344,36 +359,71 @@ function Scores({ scores, enabledModels, imageIndex }) {
     );
 }
 
-function ScoreItem({ model, score }) {
+function ScoreItem({ model, score, rowImages }) {
+    if (score === null) {
+        return (
+            <p className="text-sm">
+                <span className="font-semibold">{model}:</span>{' '}
+                processing...
+            </p>
+        );
+    }
+
+    // Get all scores for this model across all images in the row
+    const modelScores = rowImages
+        .map(image => image.scores[model])
+        .filter(s => s !== null);
+
+    const minScore = Math.min(...modelScores);
+    const maxScore = Math.max(...modelScores);
+
+    // Calculate color
+    let backgroundColor = '#466680'; // Changed to navy blue
+    if (maxScore !== minScore) {
+        const normalizedScore = (score - minScore) / (maxScore - minScore);
+        // Interpolate between navy blue (#466680) and pink (#FF69B4)
+        const r = Math.round(70 + (255 - 70) * normalizedScore);
+        const g = Math.round(102 + (105 - 102) * normalizedScore);
+        const b = Math.round(128 + (180 - 128) * normalizedScore);
+        backgroundColor = `rgb(${r}, ${g}, ${b})`;
+    }
+
     return (
         <p className="text-sm">
             <span className="font-semibold">{model}:</span>{' '}
-            {score !== null ? score.toFixed(4) : 'processing...'}
+            <span
+                className="px-1 rounded text-white"
+                style={{ backgroundColor }}
+            >
+                {score.toFixed(4)}
+            </span>
         </p>
     );
 }
 
 function Controls({ promptFilter, setPromptFilter, hideScores, setHideScores }) {
     return (
-        <div className="flex items-center space-x-4 mb-3">
-            <div className="flex items-center space-x-2">
-                <p>Filter by prompt</p>
-                <input
-                    type="text"
-                    value={promptFilter}
-                    onChange={(e) => setPromptFilter(e.target.value)}
-                    className="p-1 border border-gray-500 rounded"
-                />
-            </div>
-            <div className="flex items-center space-x-2">
-                <label htmlFor="hideScores" className="text-sm ml-5">Hide scores</label>
-                <input
-                    type="checkbox"
-                    id="hideScores"
-                    checked={hideScores}
-                    onChange={(e) => setHideScores(e.target.checked)}
-                    className="form-checkbox h-5 w-5 text-blue-600"
-                />
+        <div>
+            <div className="flex items-center space-x-4 mb-3">
+                <div className="flex items-center space-x-2">
+                    <p>Filter by prompt</p>
+                    <input
+                        type="text"
+                        value={promptFilter}
+                        onChange={(e) => setPromptFilter(e.target.value)}
+                        className="p-1 border border-gray-300 rounded"
+                    />
+                </div>
+                <div className="flex items-center space-x-2">
+                    <label htmlFor="hideScores" className="text-sm ml-5">Hide scores</label>
+                    <input
+                        type="checkbox"
+                        id="hideScores"
+                        checked={hideScores}
+                        onChange={(e) => setHideScores(e.target.checked)}
+                        className="form-checkbox h-5 w-5 text-blue-600"
+                    />
+                </div>
             </div>
         </div>
     );

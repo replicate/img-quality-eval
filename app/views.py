@@ -1,12 +1,11 @@
 # TODO:
-# * seed input
 # * aggregate predict_time and scores
-# * don't show DreamSim on first output
 
+import json
+import hashlib
 import random
 import uuid
-import json
-from django.shortcuts import render, redirect, get_object_or_404
+from django.shortcuts import render, get_object_or_404
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.urls import reverse
@@ -37,18 +36,23 @@ def evaluate_images(request):
             return JsonResponse({"error": str(e)}, status=400)
 
         api_key = encrypt_key(data.api_key)
+        hashed_api_key = hash_api_key(api_key)
+
         title = data.title
 
         input_data = data.data
         has_prompt = [bool(row.prompt) for row in input_data]
         if not all(has_prompt) and not all(not p for p in has_prompt):
-            return JsonResponse({"error": "All rows must either have a prompt or no prompt"}, status=400)
+            return JsonResponse(
+                {"error": "All rows must either have a prompt or no prompt"}, status=400
+            )
 
         eval_id = str(uuid.uuid4())
         evaluation = Evaluation.objects.create(
             eval_id=eval_id,
             title=title,
             enabled_models=data.eval_models,
+            hashed_api_key=hashed_api_key,
         )
 
         row_ids = []
@@ -69,11 +73,8 @@ def evaluate_images(request):
             chunk = row_ids[i : i + CHUNK_SIZE]
             evaluate_chunk.delay(api_key, eval_id, chunk)
 
-        results_url = request.build_absolute_uri(reverse('results', args=[eval_id]))
-        return JsonResponse({
-            "evaluation_id": eval_id,
-            "results_url": results_url
-        })
+        results_url = request.build_absolute_uri(reverse("results", args=[eval_id]))
+        return JsonResponse({"evaluation_id": eval_id, "results_url": results_url})
 
     return JsonResponse({"error": "Invalid request method"}, status=405)
 
@@ -87,6 +88,7 @@ def generate_and_evaluate(request):
             return JsonResponse({"error": str(e)}, status=400)
 
         api_key = encrypt_key(data.api_key)
+        hashed_api_key = hash_api_key(api_key)
         title = data.title
 
         eval_id = str(uuid.uuid4())
@@ -94,6 +96,7 @@ def generate_and_evaluate(request):
             eval_id=eval_id,
             title=title,
             enabled_models=data.eval_models,
+            hashed_api_key=hashed_api_key,
         )
 
         for row_data in data.rows:
@@ -103,7 +106,9 @@ def generate_and_evaluate(request):
 
             for example_data in row_data.examples:
                 labels = {k: v for k, v in example_data.inputs.items()}  # clone
-                example = Example.objects.create(row=row, labels=labels, gen_model=example_data.model)
+                example = Example.objects.create(
+                    row=row, labels=labels, gen_model=example_data.model
+                )
 
                 inputs = example_data.inputs
                 inputs[example_data.prompt_input] = row_data.prompt
@@ -116,13 +121,48 @@ def generate_and_evaluate(request):
                     inputs=example_data.inputs,
                 )
 
-        results_url = request.build_absolute_uri(reverse('results', args=[eval_id]))
-        return JsonResponse({
-            "evaluation_id": eval_id,
-            "results_url": results_url
-        })
+        results_url = request.build_absolute_uri(reverse("results", args=[eval_id]))
+        return JsonResponse({"evaluation_id": eval_id, "results_url": results_url})
 
     return JsonResponse({"error": "Invalid request method"}, status=405)
+
+
+def evaluations(request):
+    if request.method == "GET":
+        return render(request, "evaluations.html")
+
+
+@csrf_exempt
+def fetch_evaluations(request):
+    if request.method == "POST":
+        try:
+            data = json.loads(request.body)
+            api_key = data.get("api_key")
+            if not api_key:
+                return JsonResponse({"error": "API key is required"}, status=400)
+
+            encrypted_key = encrypt_key(api_key)
+            hashed_key = hash_api_key(encrypted_key)
+
+            evaluations = []
+            for evaluation in Evaluation.objects.filter(hashed_api_key=hashed_key).order_by("-created_at"):
+                eval_data = {
+                    "eval_id": evaluation.eval_id,
+                    "title": evaluation.title,
+                    "enabled_models": evaluation.enabled_models,
+                    "created_at": evaluation.created_at,
+                    "num_rows": Row.objects.filter(evaluation=evaluation).count()
+                }
+                evaluations.append(eval_data)
+
+            return JsonResponse({"evaluations": list(evaluations)})
+
+        except json.JSONDecodeError:
+            return JsonResponse({"error": "Invalid JSON"}, status=400)
+        except Exception as e:
+            return JsonResponse({"error": str(e)}, status=500)
+
+    return JsonResponse({"error": "Method not allowed"}, status=405)
 
 
 def results(request, eval_id):
@@ -135,11 +175,15 @@ def results(request, eval_id):
 def api_results(request, eval_id):
     evaluation = get_object_or_404(Evaluation, eval_id=eval_id)
 
-    rows = Row.objects.filter(evaluation=evaluation).order_by("id").prefetch_related(
-        Prefetch(
-            'examples',
-            queryset=Example.objects.order_by('id'),
-            to_attr='ordered_examples'
+    rows = (
+        Row.objects.filter(evaluation=evaluation)
+        .order_by("id")
+        .prefetch_related(
+            Prefetch(
+                "examples",
+                queryset=Example.objects.order_by("id"),
+                to_attr="ordered_examples",
+            )
         )
     )
 
@@ -213,3 +257,7 @@ def get_prompts(prompt_dataset, custom_prompts):
         return custom_prompts.splitlines()
     else:
         raise ValueError("Invalid prompt dataset")
+
+
+def hash_api_key(api_key):
+    return hashlib.sha256(api_key.encode()).hexdigest()

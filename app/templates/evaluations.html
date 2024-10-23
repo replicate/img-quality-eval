@@ -1,0 +1,14 @@
+{% extends "form_base.html" %}
+
+{% block title %}Image quality evaluation - My evaluations{% endblock %}
+
+{% block evaluations_nav_class %}bg-blue-500 text-white{% endblock %}
+
+{% block content %}
+{{ block.super }}
+<div id="root"></div>
+{% endblock %}
+
+{% block content_script %}
+<script type="text/babel" src="/static/js/evaluations.js"></script>
+{% endblock %}

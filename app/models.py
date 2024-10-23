@@ -7,6 +7,7 @@ class Evaluation(models.Model):
     title = models.CharField(max_length=255)
     enabled_models = ArrayField(models.CharField(max_length=50))
     created_at = models.DateTimeField(auto_now_add=True)
+    hashed_api_key = models.CharField(64)
 
 
 class Row(models.Model):

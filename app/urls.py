@@ -13,4 +13,6 @@ urlpatterns = [
     path("results/<str:eval_id>/", views.results, name="results"),
     path("api/results/<str:eval_id>/", views.api_results, name="api_results"),
     path("api-docs/", views.api_docs, name="api_docs"),
+    path("evaluations/", views.evaluations, name="evaluations"),
+    path("api/evaluations/", views.fetch_evaluations, name="fetch_evaluations"),
 ]
