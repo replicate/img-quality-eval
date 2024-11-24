@@ -7,7 +7,7 @@ class Example(BaseModel):
     model: str
     prompt_input: str = "prompt"
     seed_input: str = "seed"
-    inputs: dict[str, str | int | float | bool]
+    inputs: dict[str, str | int | float | bool | list[int]]
 
 
 class Row(BaseModel):
