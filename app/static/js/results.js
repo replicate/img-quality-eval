@@ -8,6 +8,7 @@ function ResultsPage() {
   const [promptFilter, setPromptFilter] = React.useState('');
   const [hideScores, setHideScores] = React.useState(false);
   const [numColumns, setNumColumns] = React.useState(0);
+  const [hasAnyScores, setHasAnyScores] = React.useState(false);
 
   const handleKeyDown = (event) => {
     if (modalImage) {
@@ -107,6 +108,14 @@ function ResultsPage() {
     setResults(results.rows);
     setEnabledModels(results.enabled_models || []);
 
+    // Check if any rows have any images with any scores
+    const anyScores = results.rows.some(row =>
+      row.images.some(image =>
+        Object.values(image.scores || {}).some(score => score !== null)
+      )
+    );
+    setHasAnyScores(anyScores);
+
     if (!results.completed) {
       setTimeout(() => {
         fetchResults();
@@ -146,6 +155,7 @@ function ResultsPage() {
           setPromptFilter={setPromptFilter}
           hideScores={hideScores}
           setHideScores={setHideScores}
+          hasAnyScores={hasAnyScores}
         />
       </div>
       {filterResults(results).map((row, rowIndex) => (
@@ -314,7 +324,7 @@ function PredictTimeLabel({ time, predictionId }) {
 
   return (
     <a href={predictionUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
-      <p className="text-sm">
+      <p className="text-sm mb-2">
         Predict time: {' '}
         {time.toFixed(2)}s
       </p>
@@ -327,7 +337,7 @@ function PredictionLoading({ predictionId }) {
 
   return (
     <a href={predictionUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
-      <p className="text-sm">
+      <p className="text-sm mb-2">
         Prediction loading...
       </p>
     </a>
@@ -336,7 +346,7 @@ function PredictionLoading({ predictionId }) {
 
 function OtherLabel({ keyName, value }) {
   return (
-    <span className="inline-block bg-gray-200 rounded-full px-3 py-1 text-sm font-semibold text-gray-700 mr-2 mb-2">
+    <span className="inline-block bg-gray-200 rounded-full px-3 py-1 text-xs font-semibold text-gray-700 mr-2 mb-1">
       {keyName}: {value.toString()}
     </span>
   );
@@ -401,7 +411,7 @@ function ScoreItem({ model, score, rowImages }) {
   );
 }
 
-function Controls({ promptFilter, setPromptFilter, hideScores, setHideScores }) {
+function Controls({ promptFilter, setPromptFilter, hideScores, setHideScores, hasAnyScores }) {
   return (
     <div>
       <div className="flex items-center space-x-4 mb-3">
@@ -414,16 +424,18 @@ function Controls({ promptFilter, setPromptFilter, hideScores, setHideScores }) 
             className="p-1 border border-gray-300 rounded"
           />
         </div>
-        <div className="flex items-center space-x-2">
-          <label htmlFor="hideScores" className="text-sm ml-5">Hide scores</label>
-          <input
-            type="checkbox"
-            id="hideScores"
-            checked={hideScores}
-            onChange={(e) => setHideScores(e.target.checked)}
-            className="form-checkbox h-5 w-5 text-blue-600"
-          />
-        </div>
+        {hasAnyScores && (
+          <div className="flex items-center space-x-2">
+            <label htmlFor="hideScores" className="text-sm ml-5">Hide scores</label>
+            <input
+              type="checkbox"
+              id="hideScores"
+              checked={hideScores}
+              onChange={(e) => setHideScores(e.target.checked)}
+              className="form-checkbox h-5 w-5 text-blue-600"
+            />
+          </div>
+        )}
       </div>
     </div>
   );
